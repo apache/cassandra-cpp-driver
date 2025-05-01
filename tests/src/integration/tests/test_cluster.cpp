@@ -22,16 +22,26 @@ public:
 };
 
 /**
- * Set local dc to null for dc-aware lbp
+ * Set local dc to null or empty for dc-aware lbp
  *
  * @jira_ticket CPP-368
  * @test_category configuration
- * @expected_result Error out because it is illegal to specify a null local-dc.
+ * @expected_result Success because NULL or empty local-dc now means use the DC of the first connected node.
  */
-CASSANDRA_INTEGRATION_TEST_F(ClusterTests, SetLoadBalanceDcAwareNullLocalDc) {
-  test::driver::Cluster cluster;
-  EXPECT_EQ(CASS_ERROR_LIB_BAD_PARAMS,
-            cass_cluster_set_load_balance_dc_aware(cluster.get(), NULL, 99, cass_false));
+CASSANDRA_INTEGRATION_TEST_F(ClusterTests, SetLoadBalanceDcAwareNullOrEmptyLocalDc) {
+  // Test with NULL local_dc
+  {
+    test::driver::Cluster cluster;
+    EXPECT_EQ(CASS_OK,
+              cass_cluster_set_load_balance_dc_aware(cluster.get(), NULL, 99, cass_false));
+  }
+  
+  // Test with empty string local_dc
+  {
+    test::driver::Cluster cluster;
+    EXPECT_EQ(CASS_OK,
+              cass_cluster_set_load_balance_dc_aware(cluster.get(), "", 99, cass_false));
+  }
 }
 
 /**

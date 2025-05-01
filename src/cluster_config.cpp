@@ -281,9 +281,6 @@ void cass_cluster_set_load_balance_round_robin(CassCluster* cluster) {
 CassError cass_cluster_set_load_balance_dc_aware(CassCluster* cluster, const char* local_dc,
                                                  unsigned used_hosts_per_remote_dc,
                                                  cass_bool_t allow_remote_dcs_for_local_cl) {
-  if (local_dc == NULL) {
-    return CASS_ERROR_LIB_BAD_PARAMS;
-  }
   return cass_cluster_set_load_balance_dc_aware_n(cluster, local_dc, SAFE_STRLEN(local_dc),
                                                   used_hosts_per_remote_dc,
                                                   allow_remote_dcs_for_local_cl);
@@ -293,11 +290,13 @@ CassError cass_cluster_set_load_balance_dc_aware_n(CassCluster* cluster, const c
                                                    size_t local_dc_length,
                                                    unsigned used_hosts_per_remote_dc,
                                                    cass_bool_t allow_remote_dcs_for_local_cl) {
-  if (local_dc == NULL || local_dc_length == 0) {
-    return CASS_ERROR_LIB_BAD_PARAMS;
-  }
+  // If local_dc is NULL or length is 0, we use an empty string which causes the driver
+  // to use the DC of the first connected node
+  String dc_name = (local_dc != NULL && local_dc_length > 0) ? 
+                    String(local_dc, local_dc_length) : String();
+  
   cluster->config().set_load_balancing_policy(new DCAwarePolicy(
-      String(local_dc, local_dc_length), used_hosts_per_remote_dc, !allow_remote_dcs_for_local_cl));
+      dc_name, used_hosts_per_remote_dc, !allow_remote_dcs_for_local_cl));
   return CASS_OK;
 }
 

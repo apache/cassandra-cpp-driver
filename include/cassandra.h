@@ -2139,6 +2139,10 @@ cass_cluster_set_load_balance_round_robin(CassCluster* cluster);
  * For each query, all live nodes in a primary 'local' DC are tried first,
  * followed by any node from other DCs.
  *
+ * <b>Important:</b> Pass in NULL for local_dc to automatically use the data center of the first
+ * connected control connection host as the primary data center. This approach is recommended
+ * over manually selecting the local_dc.
+ *
  * <b>Note:</b> This is the default, and does not need to be called unless
  * switching an existing from another policy or changing settings.
  * Without further configuration, a default local_dc is chosen from the
@@ -2154,7 +2158,7 @@ cass_cluster_set_load_balance_round_robin(CassCluster* cluster);
  * @public @memberof CassCluster
  *
  * @param[in] cluster
- * @param[in] local_dc The primary data center to try first
+ * @param[in] local_dc The primary data center to try first, or NULL to use the DC of the first connected node
  * @param[in] used_hosts_per_remote_dc The number of hosts used in each remote
  * DC if no hosts are available in the local dc (<b>deprecated</b>)
  * @param[in] allow_remote_dcs_for_local_cl Allows remote hosts to be used if no
@@ -2173,6 +2177,10 @@ cass_cluster_set_load_balance_dc_aware(CassCluster* cluster,
  * Same as cass_cluster_set_load_balance_dc_aware(), but with lengths for string
  * parameters.
  *
+ * <b>Important:</b> If local_dc is NULL or local_dc_length is 0, the data center of 
+ * the first connected control connection host will be automatically used as the 
+ * primary data center. This approach is recommended over manually selecting the local_dc.
+ *
  * @deprecated The remote DC settings for DC-aware are not suitable for most
  * scenarios that require DC failover. There is also unhandled gap between
  * replication factor number of nodes failing and the full cluster failing. Only
@@ -2181,11 +2189,11 @@ cass_cluster_set_load_balance_dc_aware(CassCluster* cluster,
  * @public @memberof CassCluster
  *
  * @param[in] cluster
- * @param[in] local_dc
- * @param[in] local_dc_length
+ * @param[in] local_dc Primary data center to try first, or NULL to use the DC of the first connected node
+ * @param[in] local_dc_length Length of local_dc string
  * @param[in] used_hosts_per_remote_dc (<b>deprecated</b>)
  * @param[in] allow_remote_dcs_for_local_cl (<b>deprecated</b>)
- * @return same as cass_cluster_set_load_balance_dc_aware()
+ * @return CASS_OK if successful, otherwise an error occurred
  *
  * @see cass_cluster_set_load_balance_dc_aware()
  */
