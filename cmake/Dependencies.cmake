@@ -11,38 +11,11 @@ endif()
 # Libuv
 #------------------------
 
-# Setup the paths and hints for libuv
-if(NOT LIBUV_ROOT_DIR)
-  if(EXISTS "${PROJECT_SOURCE_DIR}/lib/libuv/")
-    set(LIBUV_ROOT_DIR "${PROJECT_SOURCE_DIR}/lib/libuv/")
-  elseif(EXISTS "${PROJECT_SOURCE_DIR}/build/libs/libuv/")
-    set(LIBUV_ROOT_DIR "${PROJECT_SOURCE_DIR}/build/libs/libuv/")
-  endif()
-endif()
-
-# Ensure libuv was found
-find_package(Libuv "1.0.0")
-if(WIN32 AND NOT LIBUV_FOUND)
-  message(STATUS "Unable to Locate libuv: Third party build step will be performed")
-  include(ExternalProject-libuv)
-elseif(NOT LIBUV_FOUND)
-  message(FATAL_ERROR "Unable to Locate libuv: libuv v1.0.0+ is required")
-endif()
-
-if(LIBUV_VERSION VERSION_LESS "1.0")
-  message(FATAL_ERROR "Libuv version ${LIBUV_VERSION} is not "
-    " supported. Please updgrade to libuv version 1.0 or greater in order to "
-    "utilize the driver.")
-endif()
-
-if(LIBUV_VERSION VERSION_LESS "1.6")
-  message(WARNING "Libuv version ${LIBUV_VERSION} does not support custom "
-    "memory allocators (version 1.6 or greater required)")
-endif()
+find_package(libuv CONFIG REQUIRED)
 
 # Assign libuv include and libraries
 set(CASS_INCLUDES ${CASS_INCLUDES} ${LIBUV_INCLUDE_DIRS})
-set(CASS_LIBS ${CASS_LIBS} ${LIBUV_LIBRARIES})
+set(CASS_LIBS ${CASS_LIBS} $<IF:$<TARGET_EXISTS:uv_a>,uv_a,uv>)
 
 # libuv and gtests require thread library
 if(NOT WIN32)
@@ -65,44 +38,10 @@ endif()
 #------------------------
 
 if(CASS_USE_OPENSSL)
-  if(NOT WIN32)
-    set(_OPENSSL_ROOT_PATHS "${PROJECT_SOURCE_DIR}/lib/openssl/")
-    set(_OPENSSL_ROOT_HINTS ${OPENSSL_ROOT_DIR} $ENV{OPENSSL_ROOT_DIR})
-    set(_OPENSSL_ROOT_HINTS_AND_PATHS
-        HINTS ${_OPENSSL_ROOT_HINTS}
-        PATHS ${_OPENSSL_ROOT_PATHS})
-  else()
-    if(NOT DEFINED OPENSSL_ROOT_DIR)
-      # FindOpenSSL overrides _OPENSSL_ROOT_HINTS and _OPENSSL_ROOT_PATHS on Windows
-      # however it utilizes OPENSSL_ROOT_DIR when it sets these values
-      set(OPENSSL_ROOT_DIR "${PROJECT_SOURCE_DIR}/lib/openssl/"
-                           "${PROJECT_SOURCE_DIR}/build/libs/openssl/")
-    endif()
-  endif()
+  find_package(OpenSSL REQUIRED)
 
-  # Discover OpenSSL and assign OpenSSL include and libraries
-  if(WIN32 AND OPENSSL_VERSION) # Store the current version of OpenSSL to prevent corruption
-    set(SAVED_OPENSSL_VERSION ${OPENSSL_VERSION})
-  endif()
-  find_package(OpenSSL)
-  if(WIN32 AND NOT OPENSSL_FOUND)
-    message(STATUS "Unable to Locate OpenSSL: Third party build step will be performed")
-    if(SAVED_OPENSSL_VERSION)
-      set(OPENSSL_VERSION ${SAVED_OPENSSL_VERSION})
-    endif()
-    include(ExternalProject-OpenSSL)
-  elseif(NOT OPENSSL_FOUND)
-    message(FATAL_ERROR "Unable to Locate OpenSSL: Ensure OpenSSL is installed in order to build the driver")
-  else()
-    set(openssl_name "OpenSSL")
-    if(LIBRESSL_FOUND)
-      set(openssl_name "LibreSSL")
-    endif()
-    message(STATUS "${openssl_name} version: v${OPENSSL_VERSION}")
-  endif()
-
-  set(CASS_INCLUDES ${CASS_INCLUDES} ${OPENSSL_INCLUDE_DIR})
-  set(CASS_LIBS ${CASS_LIBS} ${OPENSSL_LIBRARIES})
+  set(CASS_INCLUDES ${CASS_INCLUDES} ${OpenSSL_INCLUDE_DIR})
+  set(CASS_LIBS ${CASS_LIBS} OpenSSL::SSL OpenSSL::Crypto)
 endif()
 
 #------------------------
@@ -110,33 +49,10 @@ endif()
 #------------------------
 
 if(CASS_USE_ZLIB)
-  if(NOT ZLIB_LIBRARY_NAME)
-    # Setup the root directory for zlib
-    set(ZLIB_ROOT "${PROJECT_SOURCE_DIR}/lib/zlib/"
-                  "${PROJECT_SOURCE_DIR}/build/libs/zlib/")
-    set(ZLIB_ROOT ${ZLIB_ROOT} ${ZLIB_ROOT_DIR} $ENV{ZLIB_ROOT_DIR})
+  find_package(ZLIB REQUIRED)
 
-    # Ensure zlib was found (assign zlib include/libraries or present warning)
-    find_package(ZLIB)
-    if(ZLIB_FOUND)
-      # Determine if the static library needs to be used for Windows
-      if(WIN32 AND CASS_USE_STATIC_LIBS)
-        string(REPLACE "zlib.lib" "zlibstatic.lib" ZLIB_LIBRARIES "${ZLIB_LIBRARIES}")
-      endif()
-
-      # Assign zlib properties
-      set(CASS_INCLUDES ${CASS_INCLUDES} ${ZLIB_INCLUDE_DIRS})
-      set(CASS_LIBS ${CASS_LIBS} ${ZLIB_LIBRARIES})
-      set(HAVE_ZLIB On)
-    else()
-      message(WARNING "Could not find zlib, try to set the path to zlib root folder in the system variable ZLIB_ROOT_DIR")
-      message(WARNING "zlib libraries will not be linked into build")
-    endif()
-  else()
-    # Assign zlib properties
-    set(CASS_INCLUDES ${CASS_INCLUDES} ${ZLIB_INCLUDE_DIRS})
-    set(CASS_LIBS ${CASS_LIBS} ${ZLIB_LIBRARIES})
-  endif()
+  set(CASS_INCLUDES ${CASS_INCLUDES} ${ZLIB_INCLUDE_DIRS})
+  set(CASS_LIBS ${CASS_LIBS} ZLIB::ZLIB)
 endif()
 
 #------------------------

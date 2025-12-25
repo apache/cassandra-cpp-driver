@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 2.8.12)
+
+set(ROOT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(CMAKE_TOOLCHAIN_FILE ${ROOT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake)
+
 project(cassandra C CXX)
 
 set(CASS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
