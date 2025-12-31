@@ -331,7 +331,7 @@ Function Install-Driver-Environment {
     Push-Location -Path "$($dependencies_build_location_prefix)/libuv"
 
     $cmakelists_contents = @"
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 project(libuv)
 set(PROJECT_DISPLAY_NAME "AppVeyor CI Build for libuv")
 set(PROJECT_MODULE_DIR $cmake_modules_dir)
@@ -380,7 +380,7 @@ add_dependencies(`${PROJECT_NAME} `${LIBUV_LIBRARY_NAME})
       Push-Location -Path "$($dependencies_build_location_prefix)/openssl/$_"
 
       $cmakelists_contents = @"
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 project(OpenSSL)
 set(PROJECT_DISPLAY_NAME "AppVeyor CI Build for OpenSSL")
 set(PROJECT_MODULE_DIR $cmake_modules_dir)
@@ -432,7 +432,7 @@ add_dependencies(`${PROJECT_NAME} `${OPENSSL_LIBRARY_NAME})
     Push-Location -Path "$($dependencies_build_location_prefix)/zlib"
 
     $cmakelists_contents = @"
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 project(zlib)
 set(PROJECT_DISPLAY_NAME "AppVeyor CI Build for zlib")
 set(PROJECT_MODULE_DIR $cmake_modules_dir)
@@ -508,7 +508,7 @@ add_dependencies(`${PROJECT_NAME} `${ZLIB_LIBRARY_NAME})
     Push-Location -Path "$($dependencies_build_location_prefix)/libssh2"
 
     $cmakelists_contents = @"
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 project(libssh2)
 set(PROJECT_DISPLAY_NAME "AppVeyor CI Build for libssh2")
 set(PROJECT_MODULE_DIR $cmake_modules_dir)

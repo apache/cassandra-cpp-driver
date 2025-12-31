@@ -24,7 +24,7 @@ __NOTE__: The build procedures only need to be performed for driver development
 
 The C/C++ driver depends on the following software:
 
-* [CMake] v2.8.12+
+* [CMake] v3.10+
 * [libuv] 1.x
 * Kerberos v5 ([Heimdal] or [MIT]) \*
 * [OpenSSL] v1.0.x, v1.1.x or v3.x \*\*
