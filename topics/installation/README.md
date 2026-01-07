@@ -2,38 +2,8 @@
 
 ## Packages
 
-Pre-built packages are available for CentOS 7, Ubuntu 20.04/22.04,
-Rocky Linux 8 and 9 and Windows.  All packages are available from our
-[Artifactory server].
-
-### CentOS
-
-CentOS doesn't have up-to-date versions of libuv so we provide current packages.
-These packages can be found in the `dependencies` directory under each driver
-version in Artifactory.
-
-First install dependencies:
-
-```bash
-yum install openssl krb5 zlib
-rpm -Uvh libuv-<version>.rpm
-```
-
-Note: Replace `<version>` with the release version of the package.
-
-Then install the runtime library:
-
-```bash
-rpm -Uvh cassandra-cpp-driver-<version>.rpm
-```
-
-When developing against the driver you'll also want to install the development
-package and the debug symbols.
-
-```bash
-rpm -Uvh cassandra-cpp-driver-devel-<version>.rpm
-rpm -Uvh cassandra-cpp-driver-debuginfo-<version>.rpm
-```
+Pre-built packages are available for Ubuntu 20.04/22.04, Rocky Linux 8 and 9 and Windows.
+All packages are available from our [Artifactory server].
 
 ### Rocky Linux
 

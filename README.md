@@ -5,7 +5,7 @@ A modern, feature-rich and highly tunable C/C++ client library for
 Cassandra Query Language v3. This driver can also be used with other DataStax
 products:
 
-* [DataStax Enterprise]
+* DataStax Enterprise (DSE)
 * [DataStax Astra]
 
 ## Getting the Driver
@@ -15,7 +15,6 @@ the driver (for multiple operating systems and multiple architectures) can be
 obtained from our [Artifactory server].  Binaries are available for the following
 operating systems:
 
-* CentOS 7
 * Rocky Linux 8.8
 * Rocky Linux 9.2
 * Ubuntu 20.04
@@ -29,27 +28,8 @@ The driver depends on the following libraries:
 * zlib
 
 The version of OpenSSL and zlib provided with each Linux distribution above can be used
-to build the driver.  A version of libuv > 1.x is provided for CentOS 7 and Rocky
-Linux; this can be found under the `dependencies` directory for each platform.
-Packages for all three dependencies are provided for Windows distributions.
-
-## Upgrading for DSE
-
-Starting with Apache Cassandra C/C++ Driver v2.15.0, DataStax
-Enterprise (DSE) support is now available; using the DSE driver exclusively is no
-longer required for DSE customers.
-
-### For DSE driver users
-
-Linking changes will be required when migrating to this driver. Replace `-ldse` with `-lcassandra`.
-
-### For Cassandra driver users
-
-No changes will be required when upgrading to this driver. There will be new
-driver dependencies when using any of the binary versions obtained from our
-[Artifactory server] as [Kerberos] is utilized in the [DSE features] of this
-driver. See the [installation] section for more information on obtaining the
-dependencies for a specific platform.
+to build the driver.  A version of libuv > 1.x is provided for Rocky Linux under the
+`dependencies` directory.  Packages for all three dependencies are provided for Windows distributions.
 
 ## Features
 
@@ -101,7 +81,6 @@ Both 32-bit (x86) and 64-bit (x64) architectures are supported
 
 We build and test the driver on the following platforms:
 
-* CentOS 7 w/ gcc 4.8.5
 * Rocky Linux 8.8 w/ gcc 8.5.0
 * Rocky Linux 9.2 w/ gcc 11.3.1
 * Ubuntu 20.04 w/ gcc 9.4.0
@@ -122,8 +101,8 @@ __Disclaimer__: DataStax products do not support big-endian systems.
 
 ## Getting Help
 
-* JIRA: [jira]
-* Mailing List: [mailing list]
+* Quality bug reports are welcome at the [CASSCPP project] of the ASF JIRA
+* You can talk about the driver, ask questions and get help in the #cassandra-drivers channel on [ASF Slack]
 
 ## Examples
 
@@ -206,22 +185,18 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-## Links
-
-[Apache Cassandra®]: http://cassandra.apache.org
-[DataStax Enterprise]: http://www.datastax.com/products/datastax-enterprise
-[Examples]: examples/
-[Artifactory server]: https://datastax.jfrog.io/artifactory/cpp-php-drivers/cpp-driver/builds
-[GitHub]: https://github.com/datastax/cpp-driver
-[cpp-driver-compatability-matrix]: https://docs.datastax.com/en/driver-matrix/docs/cpp-drivers.html
-[Home]: http://docs.datastax.com/en/developer/cpp-driver/latest
 [API]: http://docs.datastax.com/en/developer/cpp-driver/latest/api
-[Getting Started]: http://docs.datastax.com/en/developer/cpp-driver/latest/topics
+[ASF Slack]: https://the-asf.slack.com/
+[Apache Cassandra®]: http://cassandra.apache.org
+[Artifactory server]: https://datastax.jfrog.io/artifactory/cpp-php-drivers/cpp-driver/builds
 [Building]: http://docs.datastax.com/en/developer/cpp-driver/latest/topics/building
-[jira]: https://datastax-oss.atlassian.net/browse/CPP
-[mailing list]: https://groups.google.com/a/lists.datastax.com/forum/#!forum/cpp-driver-user
+[CASSCPP project]: https://issues.apache.org/jira/issues/?jql=project%20%3D%20CASSCPP%20ORDER%20BY%20key%20DESC
+[cpp-driver-compatability-matrix]: https://docs.datastax.com/en/driver-matrix/docs/cpp-drivers.html
 [DataStax Astra]: https://astra.datastax.com
-[Kerberos]: https://web.mit.edu/kerberos
+[Examples]: examples/
+[Getting Started]: http://docs.datastax.com/en/developer/cpp-driver/latest/topics
+[GitHub]: https://github.com/apache/cassandra-cpp-driver
+[Home]: http://docs.datastax.com/en/developer/cpp-driver/latest
 
 [Asynchronous API]: https://docs.datastax.com/en/developer/cpp-driver/latest/topics/#futures
 [Simple]: https://docs.datastax.com/en/developer/cpp-driver/latest/topics/#executing-queries
@@ -252,4 +227,3 @@ int main(int argc, char* argv[]) {
 [DSE Proxy Authentication]: http://docs.datastax.com/en/developer/cpp-driver/latest/dse_features/authentication/#proxy-authentication
 [DSE Proxy Execution]: http://docs.datastax.com/en/developer/cpp-driver/latest/dse_features/authentication/#proxy-execution
 [DSE DateRange]: https://github.com/datastax/cpp-driver/blob/master/examples/dse/date_range/date_range.c
-[DSE features]: http://docs.datastax.com/en/developer/cpp-driver/latest/dse_features

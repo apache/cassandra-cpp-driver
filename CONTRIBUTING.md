@@ -4,34 +4,28 @@ This is a guide to help you get started contributing to the DataStax C/C++ Drive
 
 ## Forking and Branching
 
-Fork the driver on [GitHub](https://github.com/datastax/cpp-driver/) and clone
+Fork the driver on [GitHub](https://github.com/apache/cassandra-cpp-driver) and clone
 your fork locally.
 
 ```bash
-$ git clone https://github.com/username/cpp-driver.git
-$ cd cpp-driver
-$ git remote add upstream https://github.com/datastax/cpp-driver.git
+$ git clone https://github.com/username/cassandra-cpp-driver.git
+$ cd cassandra-cpp-driver
+$ git remote add upstream https://github.com/apache/cassandra-cpp-driver
 ```
-
-Bug fixes should be applied directly to the stable version branch and
-features should go to the unstable branch (this will likely be 'master' going
-forward).
 
 Features that require breaking API or ABI changes should be reserved for major
 releases and will probably not be considered for minor or patch releases.
 For features and big changes consider using a feature branch.
 
 ```bash
-$ git checkout -b awesome-new-feature -t origin/1.0
+$ git checkout -b awesome-new-feature
 ```
-
-(where '1.0' is the latest stable branch)
 
 Make sure to `git rebase` to keep your branch up-to-date.
 
 ```bash
 $ git fetch upstream
-$ git rebase upstream/1.0
+$ git rebase upstream
 ```
 
 To avoid duplication of work it's important to check [JIRA] to see if a bug
@@ -122,15 +116,15 @@ your branch and create a pull request.
 $ git push origin awesome-new-feature
 ```
 
-Go to your fork (http://github.com/username/cpp-driver), select the branch with
+Go to your fork (https://github.com/username/cassandra-cpp-driver), select the branch with
 your changes and click 'Pull Request'. Fill out the pull request and submit.
 
 Your changes should usually be reviewed within a few days, otherwise we'll try
 to give you a timeline. If your pull request requires fixes or changes please
-submit them in a new commit. These commits will be squashed before inclusion
-into the stable or unstable branches.
+submit them in a new commit. These commits will be squashed before your pull request
+is merged.
 
-[JIRA]: https://datastax-oss.atlassian.net/browse/CPP/?selectedTab=com.atlassian.jira.jira-projects-plugin:summary-panel
+[JIRA]: https://issues.apache.org/jira/issues/?jql=project%20%3D%20CASSCPP%20ORDER%20BY%20key%20DESC
 [Google C++ Style Guide]: https://google.github.io/styleguide/cppguide.html
 [early exits]: http://llvm.org/docs/CodingStandards.html#use-early-exits-and-continue-to-simplify-code
 [testing guide]: https://docs.datastax.com/en/developer/cpp-driver/latest/topics/testing

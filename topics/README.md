@@ -8,7 +8,6 @@ All packages referenced below can be found on our [Artifactory server].
 
 Packages are available for the following platforms:
 
-* CentOS 7
 * Rocky Linux 8.8
 * Rocky Linux 9.2
 * Ubuntu 20.04
@@ -246,7 +245,8 @@ without incurring extra allocations.
 ## TODO
 
 Here are some features that are missing from the C/C++ driver, but are included
-with other drivers. The schedule for these features can be found on [JIRA].
+with other drivers. The schedule for these features can be found on the
+[CASSCPP project] of the ASF JIRA.
 
 - Compression
 - Schema event registration and notification
@@ -264,4 +264,4 @@ with other drivers. The schedule for these features can be found on [JIRA].
 [`CassIterator`]: https://docs.datastax.com/en/developer/cpp-driver/latest/api/struct.CassIterator/
 [`CassSession`]: https://docs.datastax.com/en/developer/cpp-driver/latest/api/struct.CassSession/
 [post]: http://www.datastax.com/dev/blog/4-simple-rules-when-using-the-datastax-drivers-for-cassandra
-[JIRA]: https://datastax-oss.atlassian.net/browse/CPP
+[CASSCPP project]: https://issues.apache.org/jira/issues/?jql=project%20%3D%20CASSCPP%20ORDER%20BY%20key%20DESC

@@ -4,7 +4,6 @@ The DataStax C/C++ Driver for Apache Cassandra and DataStax Products will build
 on most standard Unix-like and Microsoft Windows platforms. Packages are
 available for the following platforms:
 
-* CentOS 7
 * Rocky Linux 8.8
 * Rocky Linux 9.2
 * Ubuntu 20.04
@@ -51,9 +50,9 @@ OpenSSL 3.x by default and the unit and integration tests all pass on these plat
 
 ## Linux/Mac OS
 
-The driver is known to build on CentOS/RHEL 6/7/8, Mac OS X 10.10/10.11 (Yosemite
+The driver is known to build on Rocky Linux 8/9, Mac OS X 10.10/10.11 (Yosemite
 and El Capitan), Mac OS 10.12/10.13 (Sierra and High Sierra), and Ubuntu
-14.04/16.04/18.04 LTS.
+20.04/22.04 LTS.
 
 __NOTE__: The driver will also build on most standard Unix-like systems using
           GCC 4.1.2+ or Clang 3.4+.
@@ -62,7 +61,7 @@ __NOTE__: The driver will also build on most standard Unix-like systems using
 
 #### Initial environment setup
 
-##### CentOS/RHEL (Yum)
+##### Rocky/RHEL (Yum)
 
 ```bash
 yum install automake cmake gcc-c++ git libtool
@@ -89,7 +88,7 @@ brew install autoconf automake cmake libtool
 
 #### Kerberos
 
-##### CentOS/RHEL (Yum)
+##### Rocky/RHEL (Yum)
 
 ```bash
 yum install krb5-devel
@@ -105,14 +104,14 @@ apt-get install libkrb5-dev
 
 libuv v1.x should be used in order to ensure all features of the C/C++ driver
 are available. When using a package manager for your operating system make sure
-you install v1.x; if available.
+you install v1.x.
 
-##### CentOS, Rocky and Ubuntu packages
+##### Rocky and Ubuntu packages
 
 Packages are available from our [Artifactory server].  Select the driver version,
 build and platform and then look for the `dependencies` directory.  Note that the
-version of libuv available on Ubuntu can be used when building the driver.  As a
-result we only provide packages for CentOS and Rocky.
+version of libuv available on supported versions of Ubuntu can be used when
+building the driver.  As a result we only provide packages for Rocky Linux only.
 
 ##### Mac OS (Brew)
 
@@ -139,7 +138,7 @@ popd
 
 #### OpenSSL
 
-##### CentOS (Yum)
+##### Rocky (Yum)
 
 ```bash
 yum install openssl-devel
@@ -180,7 +179,7 @@ popd
 
 #### zlib
 
-##### CentOS (Yum)
+##### Rocky (Yum)
 
 ```bash
 yum install zlib-devel
