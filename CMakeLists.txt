@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.5)
 project(cassandra C CXX)
 
 set(CASS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -162,6 +162,7 @@ endif()
 #------------------------
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR
+   "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang" OR
    "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # Enable C++11 support to use std::atomic
   if(CASS_USE_STD_ATOMIC)
@@ -177,7 +178,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR
     endif()
   endif()
 
-  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") 
+  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR
+     "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang") 
     # Clang/Intel specific compiler options
     # I disabled long-long warning because boost generates about 50 such warnings
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wextra -Wno-long-long -Wno-unused-parameter")
