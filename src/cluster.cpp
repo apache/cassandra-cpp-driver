@@ -663,6 +663,19 @@ void Cluster::notify_or_record(const ClusterEvent& event) {
   }
 }
 
+// TODO: This function takes a callback because it's called from both the host up and host add handlers.
+// The usage there is to send appropriate notifications to all other nodes whether query prep succeeds or
+// not.  But that processing isn't really part of what _this_ function is trying to accomplish; that
+// responsibility really relies with the host up or host add handler itself.
+//
+// A more robust implementation would be to implement the host up and host add handlers as a combined
+// sequence of ops and then wait on that whole sequence to either complete or fail.  That's a fairly
+// significant change to the current impl, though, so for now just moving the notifications into
+// the host up/add handlers will be sufficient.
+//
+// Why does any of this matter?  Originally we were triggering this callback on socket close even when
+// we were closing a connection.  This link has already been severed (see CASSCPP-3) but that effort
+// exposed the unnecessary entanglement described above.
 bool Cluster::prepare_host(const Host::Ptr& host, const PrepareHostHandler::Callback& callback) {
   if (connection_ && settings_.prepare_on_up_or_add_host) {
     PrepareHostHandler::Ptr prepare_host_handler(

@@ -69,8 +69,6 @@ void PrepareHostHandler::prepare(uv_loop_t* loop, const ConnectionSettings& sett
 }
 
 void PrepareHostHandler::on_close(Connection* connection) {
-  callback_(this);
-
   dec_ref(); // The event loop is done with this handler
 }
 

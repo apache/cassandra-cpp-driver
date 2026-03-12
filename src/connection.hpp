@@ -87,7 +87,7 @@ public:
    *
    * @param connection The closing connection.
    */
-  virtual void on_close(Connection* connection) = 0;
+  virtual void on_close(Connection* connection) {}
 };
 
 /**
