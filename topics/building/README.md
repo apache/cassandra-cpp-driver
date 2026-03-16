@@ -126,9 +126,9 @@ your system._
 
 ```bash
 pushd /tmp
-wget http://dist.libuv.org/dist/v1.34.0/libuv-v1.35.0.tar.gz
-tar xzf libuv-v1.35.0.tar.gz
-pushd libuv-v1.35.0
+wget http://dist.libuv.org/dist/v1.34.0/libuv-v1.34.0.tar.gz
+tar xzf libuv-v1.34.0.tar.gz
+pushd libuv-v1.34.0
 sh autogen.sh
 ./configure
 make install
