@@ -22,15 +22,9 @@ set -e #Fail fast on non-zero exit status
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-if [ "${OS_DISTRO}" = "osx" ]; then
-  LIB_SUFFIX="dylib"
-  PROCS=$(sysctl -n hw.logicalcpu)
-  . ${SCRIPT_DIR}/.build.osx.sh
-else
-  LIB_SUFFIX="so"
-  PROCS=$(grep -e '^processor' -c /proc/cpuinfo)
-  . ${SCRIPT_DIR}/.build.linux.sh
-fi
+LIB_SUFFIX="so"
+PROCS=$(grep -e '^processor' -c /proc/cpuinfo)
+. ${SCRIPT_DIR}/.build.linux.sh
 
 get_driver_version() {
   local header_file=${1}
@@ -75,7 +69,7 @@ build_driver() {
     if [ "${CI_INTEGRATION_ENABLED}" == "true" ]; then
       BUILD_INTEGRATION_TESTS=On
     fi
-    cmake -DCMAKE_BUILD_TYPE=Release \
+    LIBUV_ROOT_DIR=${HOME}/libuv-${LIBUV_VERSION} cmake -DCMAKE_BUILD_TYPE=Release \
           -D${driver_prefix}_BUILD_SHARED=On \
           -D${driver_prefix}_BUILD_EXAMPLES=On \
           -D${driver_prefix}_BUILD_UNIT_TESTS=On \

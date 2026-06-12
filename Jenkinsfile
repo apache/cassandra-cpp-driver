@@ -84,10 +84,6 @@ def installDependencies() {
     . ${DRIVER_BUILD_SCRIPT}
 
     install_dependencies
-    if [ -d packaging/packages ]; then
-      mkdir -p ${OS_DISTRO}/${OS_DISTRO_RELEASE}
-      cp packaging/packages/libuv* ${OS_DISTRO}/${OS_DISTRO_RELEASE}
-    fi
   '''
 }
 
@@ -243,70 +239,10 @@ def executeIntegrationTests() {
   }
 }
 
-def buildPackagesAndInstallDriver() {
-  sh label: 'Build packages and install driver', script: '''#!/bin/bash -le
-    . ${DRIVER_BUILD_SCRIPT}
-
-    install_driver
-    if [ -d packaging/packages ]; then
-      mkdir -p ${OS_DISTRO}/${OS_DISTRO_RELEASE}
-      cp packaging/packages/${DRIVER_LIBRARY}-cpp-driver* ${OS_DISTRO}/${OS_DISTRO_RELEASE}
-    fi
-  '''
-}
-
-def testDriverInstallation() {
-  sh label: 'Test driver installation', script: '''#!/bin/bash -le
-    . ${DRIVER_BUILD_SCRIPT}
-
-    test_installed_driver "${DRIVER_LIBRARY}"
-  '''
-}
-
-def deployDriver() {
-  withCredentials([usernameColonPassword(credentialsId: 'cpp-drivers-artifactory-upload-username-encrypted-password', variable: 'ARTIFACTORY_CREDENTIALS'),
-                   string(credentialsId: 'artifactory-base-url', variable: 'ARTIFACTORY_BASE_URL')]) {
-    sh label: 'Deploy driver to Artifactory', script: '''#!/bin/bash -le
-      . ${DRIVER_BUILD_SCRIPT}
-
-      DRIVER_FOLDER=cpp-driver
-      if [ "${DRIVER_TYPE}" = "DSE" ]; then
-        DRIVER_FOLDER=cpp-dse-driver
-      fi
-      DRIVER_BASE="cpp-php-drivers/${DRIVER_FOLDER}/builds"
-      curl -u "${ARTIFACTORY_CREDENTIALS}" -T "{$(echo packaging/packages/${DRIVER_LIBRARY}-cpp-driver* | tr ' ' ',')}" "${ARTIFACTORY_BASE_URL}/${DRIVER_BASE}/${DRIVER_VERSION}/${GIT_SHA}/${OS_DISTRO}/${OS_DISTRO_RELEASE}/${DRIVER_LIBRARY}/v${DRIVER_VERSION}/"
-      curl -u "${ARTIFACTORY_CREDENTIALS}" -T "{$(echo packaging/packages/libuv* | tr ' ' ',')}" "${ARTIFACTORY_BASE_URL}/${DRIVER_BASE}/${DRIVER_VERSION}/${GIT_SHA}/${OS_DISTRO}/${OS_DISTRO_RELEASE}/dependencies/libuv/v${LIBUV_VERSION}/"
-    '''
-  }
-}
-
-def determineBuildType() {
-  if (params.ADHOC_BUILD_TYPE == 'BUILD-AND-EXECUTE-TESTS') {
-    return 'adhoc'
-  } else if (params.ADHOC_BUILD_TYPE == 'BUILD-DOCUMENTS') {
-    return 'documents'
-  }
-
-  def buildType = 'commit'
-  if (env.IS_BUILDING_RELEASE == 'true') {
-    buildType = 'release'
-  } else if (params.CI_SCHEDULE != 'DO-NOT-CHANGE-THIS-SELECTION') {
-    buildType = "${params.CI_SCHEDULE.toLowerCase()}"
-  }
-  return buildType
-}
-
 def describePerCommitStage() {
   script {
     currentBuild.displayName = "Per-Commit build of ${env.BRANCH_NAME}"
     currentBuild.description = "Per-Commit build, export validation, unit testing, package building, and testing of installed library for branch ${env.BRANCH_NAME}"
-  }
-}
-
-def describeReleaseAndDeployStage() {
-  script {
-    currentBuild.displayName = "Build release v${env.DRIVER_VERSION} [${env.GIT_SHA}]"
-    currentBuild.description = "Build the DataStax C/C++ driver release v${env.DRIVER_VERSION} [${env.GIT_SHA}] and deploy to Artifactory"
   }
 }
 
@@ -350,13 +286,6 @@ def describeScheduledAndAdhocTestingStage() {
   }
 }
 
-def describeScheduledAndAdhocBuildDocuments() {
-  script {
-    currentBuild.displayName = "Build documents [${env.GIT_SHA}]"
-    currentBuild.description = "Build the DataStax C/C++ driver documents [${env.GIT_SHA}]"
-  }
-}
-
 pipeline {
   agent none
 
@@ -370,7 +299,7 @@ pipeline {
   parameters {
     choice(
       name: 'ADHOC_BUILD_TYPE',
-      choices: ['BUILD', 'BUILD-AND-EXECUTE-TESTS', 'BUILD-RELEASE-AND-DEPLOY', 'BUILD-DOCUMENTS'],
+      choices: ['BUILD', 'BUILD-AND-EXECUTE-TESTS'],
       description: '''Perform a adhoc build operation
                       <table style="width:100%">
                         <col width="25%">
@@ -393,14 +322,6 @@ pipeline {
                               <li>USE <b>INTEGRATION_TESTS_FILTER</b> to limit integration tests</li>
                             </ul>
                           </td>
-                        </tr>
-                        <tr>
-                          <td><strong>BUILD-RELEASE-AND-DEPLOY</strong></td>
-                          <td>Performs a release build and deploys to Artifactory</td>
-                        </tr>
-                        <tr>
-                          <td><strong>BUILD-DOCUMENTS</strong></td>
-                          <td>Performs a document build using documentor</td>
                         </tr>
                       </table>
                       <br/>''')
@@ -444,10 +365,10 @@ pipeline {
                       </table>''')
     choice(
       name: 'OS_VERSION',
-      choices: ['rocky/8-64/cpp',
-                'rocky/9-64/cpp',
-                'ubuntu/focal64/cpp',
-                'ubuntu/jammy64/cpp'],
+      choices: ['rocky/9-64/cpp',
+                'rocky/10-64/cpp',
+                'ubuntu/jammy64/cpp',
+                'ubuntu/noble64/cpp'],
       description: '''Operating system to use for scheduled or adhoc builds
                       <table style="width:100%">
                         <col width="20%">
@@ -457,20 +378,20 @@ pipeline {
                           <th align="left">Description</th>
                         </tr>
                         <tr>
-                          <td><strong>rocky/8-64/cpp</strong></td>
-                          <td>Rocky Linux 8 x86_64</td>
-                        </tr>
-                        <tr>
                           <td><strong>rocky/9-64/cpp</strong></td>
                           <td>Rocky Linux 9 x86_64</td>
                         </tr>
                         <tr>
-                          <td><strong>ubuntu/focal64/cpp</strong></td>
-                          <td>Ubuntu 20.04 LTS x86_64</td>
+                          <td><strong>rocky/10-64/cpp</strong></td>
+                          <td>Rocky Linux 10 x86_64</td>
                         </tr>
                         <tr>
                           <td><strong>ubuntu/jammy64/cpp</strong></td>
                           <td>Ubuntu 22.04 LTS x86_64</td>
+                        </tr>
+                        <tr>
+                          <td><strong>ubuntu/noble64/cpp</strong></td>
+                          <td>Ubuntu 24.04 LTS x86_64</td>
                         </tr>
                       </table>''')
     string(
@@ -480,7 +401,7 @@ pipeline {
                       Run only the tests whose name matches one of the positive patterns but none of the negative patterns. <b>\'?\'</b> matches any single character; <b>\'*\'</b> matches any substring; <b>\':\'</b> separates two patterns.''')
     string(
       name: 'LIBUV_VERSION',
-      defaultValue: '1.38.0',
+      defaultValue: '1.52.1',
       description: '''<p>libuv version to build and use</p>
                       <b>Note:</b> Rarely does this need to change.''')
     choice(
@@ -516,10 +437,10 @@ pipeline {
         axes {
           axis {
             name 'OS_VERSION'
-            values 'rocky/8-64/cpp',
-                   'rocky/9-64/cpp',
-                   'ubuntu/focal64/cpp',
-                   'ubuntu/jammy64/cpp'
+            values 'rocky/9-64/cpp',
+                   'rocky/10-64/cpp',
+                   'ubuntu/jammy64/cpp',
+                   'ubuntu/noble64/cpp'
           }
         }
 
@@ -588,95 +509,6 @@ pipeline {
                 // Allow empty results if segfault occurs
                 junit testResults: '*unit-tests-*-results.xml', allowEmptyResults: true
               }
-            }
-          }
-          stage('Build-Packages-And-Install-Driver') {
-            when {
-              expression { env.OS_VERSION != 'osx/high-sierra' }
-            }
-            steps {
-              buildPackagesAndInstallDriver()
-            }
-            post {
-              success {
-                script {
-                  def distro = get_os_distro()
-                  archiveArtifacts artifacts: "${distro}/**/*-cpp-driver*"
-                }
-              }
-            }
-          }
-          stage('Test-Driver-Installation') {
-            when {
-              expression { env.OS_VERSION != 'osx/high-sierra' }
-            }
-            steps {
-              testDriverInstallation()
-            }
-          }
-        }
-        post {
-          cleanup {
-            cleanWs()
-          }
-        }
-      }
-    }
-
-    stage('Build-Release-And-Deploy') {
-      options {
-        timeout(time: 1, unit: 'HOURS')
-      }
-      when {
-        beforeAgent true
-        anyOf {
-          buildingTag()
-          expression { params.ADHOC_BUILD_TYPE == 'BUILD-RELEASE-AND-DEPLOY' }
-        }
-      }
-
-      matrix {
-        axes {
-          axis {
-            name 'OS_VERSION'
-            values 'rocky/8-64/cpp',
-                   'rocky/9-64/cpp',
-                   'ubuntu/focal64/cpp',
-                   'ubuntu/jammy64/cpp'
-          }
-        }
-
-        environment {
-          IS_BUILDING_RELEASE = 'true'
-        }
-        agent {
-          label "${env.OS_VERSION}"
-        }
-
-        stages {
-          stage('Initialize-Environment') {
-            steps {
-              initializeEnvironment()
-            }
-          }
-          stage('Describe-Release-And-Deploy') {
-            steps {
-              describeReleaseAndDeployStage()
-            }
-          }
-          stage('Install-Dependencies') {
-            steps {
-              installDependencies()
-            }
-          }
-          stage('Build-Packages-And-Install-Driver') {
-            steps {
-              buildPackagesAndInstallDriver()
-            }
-          }
-          stage('Deploy-Driver') {
-            steps {
-              deployDriver()
             }
           }
         }
@@ -782,60 +614,6 @@ pipeline {
               cleanup {
                 cleanWs()
               }
-            }
-          }
-        }
-      }
-    }
-
-    stage('Scheduled-And-Adhoc-Build-Documents') {
-      when {
-        beforeAgent true
-        allOf {
-          not { buildingTag() }
-          anyOf {
-            allOf {
-              // User initiated
-              expression { params.ADHOC_BUILD_TYPE == 'BUILD-DOCUMENTS' }
-              expression { params.CI_SCHEDULE == 'DO-NOT-CHANGE-THIS-SELECTION' }
-              expression { params.CI_SCHEDULE_SERVER_VERSIONS == 'DO-NOT-CHANGE-THIS-SELECTION' }
-            }
-            allOf {
-              // Schedule initiated
-              branch 'master'
-              expression { params.ADHOC_BUILD_TYPE == 'BUILD-DOCUMENTS' }
-              expression { params.CI_SCHEDULE == 'WEEKENDS' }
-              expression { params.CI_SCHEDULE_SERVER_VERSIONS == 'DO-NOT-CHANGE-THIS-SELECTION' }
-            }
-          }
-        }
-      }
-
-      environment {
-        OS_VERSION = 'ubuntu/jammy64/cpp'
-      }
-      agent {
-        label 'ubuntu/jammy64/cpp'
-      }
-
-      stages {
-        stage('Initialize-Environment') {
-          steps {
-            initializeEnvironment()
-          }
-        }
-        stage('Describe-Build') {
-          steps {
-            describeScheduledAndAdhocBuildDocuments()
-          }
-        }
-        stage('Build-Documents') {
-          steps {
-            buildDocuments()
-          }
-          post {
-            success {
-              archiveArtifacts artifacts: '*-documents.tgz'
             }
           }
         }

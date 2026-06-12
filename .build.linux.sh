@@ -23,35 +23,13 @@ configure_testing_environment() {
 }
 
 install_libuv() {(
-  if [[ "${OS_DISTRO}" = "ubuntu" ]] && [[ "${OS_DISTRO_RELEASE}" > "18.04" ]]; then
-    true
-  else
-    cd packaging
-    git clone --depth 1 https://github.com/datastax/libuv-packaging.git
-
-    (
-      cd libuv-packaging
-
-      # Ensure build directory is cleaned (static nodes are not cleaned)
-      [[ -d build ]] && rm -rf build
-      mkdir build
-
-      if [ "${OS_DISTRO}" = "ubuntu" ]; then
-        ./build_deb.sh ${LIBUV_VERSION}
-      else
-        ./build_rpm.sh ${LIBUV_VERSION}
-      fi
-    )
-
-    [[ -d packages ]] || mkdir packages
-    find libuv-packaging/build -type f \( -name "*.deb" -o -name "*.rpm" \) -exec mv {} packages \;
-
-    if [ "${OS_DISTRO}" = "ubuntu" ]; then
-      sudo dpkg -i packages/libuv*.deb
-    else
-      sudo rpm -U --force packages/libuv*.rpm
-    fi
-  fi
+  git clone https://github.com/libuv/libuv.git
+  cd libuv
+  git checkout v${LIBUV_VERSION}
+  sh autogen.sh
+  ./configure --prefix=${HOME}/libuv-${LIBUV_VERSION}
+  make
+  make install
 )}
 
 install_openssl() {
@@ -61,59 +39,3 @@ install_openssl() {
 install_zlib() {
   true # Already installed on image
 }
-
-install_driver() {(
-  cd packaging
-
-  (
-    # Ensure build directory is cleaned (static nodes are not cleaned)
-    [[ -d build ]] && rm -rf build
-    mkdir build
-
-    if [ "${OS_DISTRO}" = "ubuntu" ]; then
-      ./build_deb.sh
-    else
-      ./build_rpm.sh
-    fi
-  )
-
-  [[ -d packages ]] || mkdir packages
-  find build -type f \( -name "*.deb" -o -name "*.rpm" \) -exec mv {} packages \;
-
-  if [ "${OS_DISTRO}" = "ubuntu" ]; then
-    sudo dpkg -i packages/*cpp-driver*.deb
-  else
-    sudo rpm -i packages/*cpp-driver*.rpm
-  fi
-)}
-
-test_installed_driver() {
-  local driver=$1
-
-  local test_program=$(mktemp)
-  gcc -x c -o ${test_program} - -Wno-implicit-function-declaration -l${driver} - <<EOF
-#include <${driver}.h>
-
-int main(int argc, char* argv[]) {
-  CassFuture* connect_future = NULL;
-  CassCluster* cluster = cass_cluster_new();
-  CassSession* session = cass_session_new();
-
-  cass_cluster_set_contact_points(cluster, "127.0.0.1");
-  connect_future = cass_session_connect(session, cluster);
-  cass_future_wait(connect_future);
-  printf("Success");
-  return 0;
-}
-EOF
-
-  if [ $? -ne 0 ] ; then
-    echo "Connection test compilation failed. Marking build as failure."
-    exit 1
-  fi
-  if [ "$($test_program)" != "Success" ] ; then
-    echo "Connection test did not return success. Marking build as failure."
-    exit 1
-  fi
-}
-
