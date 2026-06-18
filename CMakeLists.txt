@@ -134,7 +134,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
       set(CASS_USE_STD_ATOMIC ON)
     endif()
   endif()
-elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang$")
   # Version determined from: http://clang.llvm.org/cxx_status.html
   # 3.2 includes the full C++11 memory model, but 3.1 had atomic
   # support.
@@ -161,7 +161,7 @@ endif()
 # Top-level compiler flags
 #------------------------
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang$" OR
    "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # Enable C++11 support to use std::atomic
   if(CASS_USE_STD_ATOMIC)
@@ -177,7 +177,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR
     endif()
   endif()
 
-  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") 
+  if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang$")
     # Clang/Intel specific compiler options
     # I disabled long-long warning because boost generates about 50 such warnings
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wextra -Wno-long-long -Wno-unused-parameter")
