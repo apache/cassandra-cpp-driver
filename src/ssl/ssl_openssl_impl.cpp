@@ -284,19 +284,19 @@ public:
 
 private:
   static Result match_common_name_ipaddr(X509* cert, const String& address) {
-    X509_NAME* name = X509_get_subject_name(cert);
+    const X509_NAME* name = X509_get_subject_name(cert);
     if (name == NULL) {
       return INVALID_CERT;
     }
 
     int i = -1;
     while ((i = X509_NAME_get_index_by_NID(name, NID_commonName, i)) > 0) {
-      X509_NAME_ENTRY* name_entry = X509_NAME_get_entry(name, i);
+      const X509_NAME_ENTRY* name_entry = X509_NAME_get_entry(name, i);
       if (name_entry == NULL) {
         return INVALID_CERT;
       }
 
-      ASN1_STRING* str = X509_NAME_ENTRY_get_data(name_entry);
+      const ASN1_STRING* str = X509_NAME_ENTRY_get_data(name_entry);
       if (str == NULL) {
         return INVALID_CERT;
       }
@@ -315,19 +315,19 @@ private:
   }
 
   static Result match_common_name_dns(X509* cert, const String& hostname) {
-    X509_NAME* name = X509_get_subject_name(cert);
+    const X509_NAME* name = X509_get_subject_name(cert);
     if (name == NULL) {
       return INVALID_CERT;
     }
 
     int i = -1;
     while ((i = X509_NAME_get_index_by_NID(name, NID_commonName, i)) >= 0) {
-      X509_NAME_ENTRY* name_entry = X509_NAME_get_entry(name, i);
+      const X509_NAME_ENTRY* name_entry = X509_NAME_get_entry(name, i);
       if (name_entry == NULL) {
         return INVALID_CERT;
       }
 
-      ASN1_STRING* str = X509_NAME_ENTRY_get_data(name_entry);
+      const ASN1_STRING* str = X509_NAME_ENTRY_get_data(name_entry);
       if (str == NULL) {
         return INVALID_CERT;
       }
