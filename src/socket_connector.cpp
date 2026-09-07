@@ -65,6 +65,11 @@ public:
     delete request;
     if (status != 0) {
       connector_->on_error(SocketConnector::SOCKET_ERROR_WRITE, "Write error");
+      return;
+    }
+    // TLS 1.3 can finish the handshake while this write was still queued.
+    if (connector_->ssl_session_->is_handshake_done()) {
+      connector_->ssl_handshake_finish();
     }
   }
 
@@ -207,21 +212,26 @@ void SocketConnector::ssl_handshake() {
     }
   }
 
-  // Write any outgoing data created by the handshake process.
+  // Write any outgoing data created by the handshake process. Finishing is
+  // deferred to on_write() if the handshake is already done (e.g. TLS 1.3).
   char buf[SSL_HANDSHAKE_MAX_BUFFER_SIZE];
   size_t size = ssl_session_->outgoing().read(buf, SSL_HANDSHAKE_MAX_BUFFER_SIZE);
   if (size > 0) {
     socket_->write_and_flush(new BufferSocketRequest(Buffer(buf, size)));
-  } else if (ssl_session_->is_handshake_done()) { // If the handshake process is done then verify
-                                                  // the certificate and finish.
-    ssl_session_->verify();
-    if (ssl_session_->has_error()) {
-      on_error(SOCKET_ERROR_SSL_VERIFY,
-               "Error verifying peer certificate: " + ssl_session_->error_message());
-      return;
-    }
-    finish();
+  } else if (ssl_session_->is_handshake_done()) {
+    ssl_handshake_finish();
   }
+}
+
+void SocketConnector::ssl_handshake_finish() {
+  // If the handshake process is done then verify the certificate and finish.
+  ssl_session_->verify();
+  if (ssl_session_->has_error()) {
+    on_error(SOCKET_ERROR_SSL_VERIFY,
+             "Error verifying peer certificate: " + ssl_session_->error_message());
+    return;
+  }
+  finish();
 }
 
 void SocketConnector::finish() {
