@@ -206,12 +206,7 @@ public:
    *
    * @param The socket handling the write.
    */
-  SocketWriteBase(Socket* socket)
-      : socket_(socket)
-      , is_flushed_(false) {
-    req_.data = this;
-    buffers_.reserve(MIN_BUFFERS_SIZE);
-  }
+  SocketWriteBase(Socket* socket);
 
   virtual ~SocketWriteBase() {}
 
@@ -260,6 +255,8 @@ protected:
   Socket* socket_;
   uv_write_t req_;
   bool is_flushed_;
+  // Socket's handler generation when this write was created, to avoid reuse under a new handler.
+  size_t handler_generation_;
   BufferVec buffers_;
   RequestVec requests_;
 };
@@ -297,6 +294,11 @@ public:
    * @param handler The socket handler.
    */
   void set_handler(SocketHandlerBase* handler);
+
+  /**
+   * The number of times the socket's handler has been set.
+   */
+  size_t handler_generation() const { return handler_generation_; }
 
   /**
    * Write a request to the socket and coalesce with outstanding requests. This
@@ -367,6 +369,7 @@ private:
 
   uv_tcp_t tcp_;
   ScopedPtr<SocketHandlerBase> handler_;
+  size_t handler_generation_;
 
   SocketWriteBase::List pending_writes_;
   SocketWriteVec free_writes_;

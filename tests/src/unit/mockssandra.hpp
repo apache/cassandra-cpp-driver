@@ -176,7 +176,7 @@ public:
   const ClientConnections& clients() const { return clients_; }
 
   bool use_ssl(const String& key, const String& cert, const String& ca_cert = "",
-               bool require_client_cert = false);
+               bool require_client_cert = false, int max_tls_version = 0);
   void weaken_ssl();
 
   void listen(EventLoopGroup* event_loop_group);

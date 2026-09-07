@@ -48,6 +48,11 @@ the [migration guide] for details).  The driver does not use any of these functi
 3.x to be relatively painless.  Note that two officially supported platforms (Ubuntu 22.04 and Rocky Linux 9.2) come with
 OpenSSL 3.x by default and the unit and integration tests all pass on these platforms.
 
+### A Brief Note on TLS 1.3
+TLS 1.3 support was introduced to OpenSSL with the [1.1.1 release].  As of version 2.17.2 the driver includes support for
+at least basic connectivity with TLS 1.3.  Note that TLS 1.3 support will only be available if a version of OpenSSL >= 1.1.1
+is utilized at build-time.  See [PR 591] for more on this point.
+
 ## Linux/Mac OS
 
 The driver is known to build on Rocky Linux 8/9, Mac OS X 10.10/10.11 (Yosemite
@@ -342,3 +347,5 @@ cmake -G "Visual Studio 16 2019" -A x64 -DCASS_BUILD_UNIT_TESTS=On ..
 [OpenSSL]: https://www.openssl.org
 [zlib]: https://www.zlib.net
 [migration guide]: https://www.openssl.org/docs/man3.0/man7/migration_guide.html
+[1.1.1 release]: https://github.com/openssl/openssl/wiki/TLS1.3
+[PR 591]: https://github.com/apache/cassandra-cpp-driver/pull/591

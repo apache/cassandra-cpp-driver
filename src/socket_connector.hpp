@@ -138,6 +138,7 @@ public:
 private:
   void internal_connect(uv_loop_t* loop);
   void ssl_handshake();
+  void ssl_handshake_finish();
   void finish();
 
   void on_error(SocketError code, const String& message);
@@ -166,6 +167,12 @@ private:
   CassError ssl_error_code_;
 
   ScopedPtr<SslSession> ssl_session_;
+
+  // Guards against ssl_handshake_finish() running more than once. With TLS 1.3
+  // the handshake can be reported done both from a deferred on_write() (after
+  // the final client flight is flushed) and from a subsequent on_read() (e.g.
+  // post-handshake data arriving before that write completes).
+  bool is_handshake_finished_;
 
   SocketSettings settings_;
 };

@@ -210,7 +210,13 @@ TEST_F(HttpClientUnitTest, NoClientCertProvidedSsl) {
   String ca_key = mockssandra::Ssl::generate_key();
   String ca_cert = mockssandra::Ssl::generate_cert(ca_key, "CA");
 
-  use_ssl(ca_key, ca_cert, HTTP_MOCK_HOSTNAME);
+  /* CASSCPP-16
+
+     Disable TLS 1.3 here so that we're only testing against TLS 1.2.  Since client cert compares
+     don't happen until the first bit of client data is read this test would need to be restructured
+     to work with TLS 1.3.  We can pursue this in later work but for now we just constrain this
+     test at the earlier TLS version. */
+  use_ssl(ca_key, ca_cert, HTTP_MOCK_HOSTNAME, TLS1_2_VERSION);
   start_http_server();
 
   bool is_failed = false;
@@ -240,7 +246,13 @@ TEST_F(HttpClientUnitTest, InvalidClientCertSsl) {
   String client_key = mockssandra::Ssl::generate_key();
   String client_cert = mockssandra::Ssl::generate_cert(client_key, ""); // Self-signed
 
-  use_ssl(ca_key, ca_cert, HTTP_MOCK_HOSTNAME);
+  /* CASSCPP-16
+
+     Disable TLS 1.3 here so that we're only testing against TLS 1.2.  Since client cert compares
+     don't happen until the first bit of client data is read this test would need to be restructured
+     to work with TLS 1.3.  We can pursue this in later work but for now we just constrain this
+     test at the earlier TLS version. */
+  use_ssl(ca_key, ca_cert, HTTP_MOCK_HOSTNAME, TLS1_2_VERSION);
   start_http_server();
 
   bool is_failed = false;

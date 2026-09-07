@@ -65,7 +65,7 @@ public:
   }
 
   bool use_ssl(const String& key, const String& cert, const String& ca_cert = "",
-               bool require_client_cert = false);
+               bool require_client_cert = false, int max_tls_version = 0);
 
   void listen();
   void close();

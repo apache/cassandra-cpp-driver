@@ -225,6 +225,14 @@ void SslSocketHandler::on_read(Socket* socket, ssize_t nread, const uv_buf_t* bu
 
 uv_tcp_t* SocketWriteBase::tcp() { return &socket_->tcp_; }
 
+SocketWriteBase::SocketWriteBase(Socket* socket)
+    : socket_(socket)
+    , is_flushed_(false)
+    , handler_generation_(socket->handler_generation()) {
+  req_.data = this;
+  buffers_.reserve(MIN_BUFFERS_SIZE);
+}
+
 void SocketWriteBase::on_close() {
   for (RequestVec::iterator i = requests_.begin(), end = requests_.end(); i != end; ++i) {
     (*i)->on_close();
@@ -267,7 +275,9 @@ void SocketWriteBase::handle_write(uv_write_t* req, int status) {
 
   socket->pending_writes_.remove(this);
 
-  if (socket->free_writes_.size() < socket->max_reusable_write_objects_) {
+  // Don't recycle a write created under a handler that's since been replaced.
+  if (handler_generation_ == socket->handler_generation_ &&
+      socket->free_writes_.size() < socket->max_reusable_write_objects_) {
     clear();
     socket->free_writes_.push_back(this);
   } else {
@@ -278,7 +288,8 @@ void SocketWriteBase::handle_write(uv_write_t* req, int status) {
 }
 
 Socket::Socket(const Address& address, size_t max_reusable_write_objects)
-    : is_defunct_(false)
+    : handler_generation_(0)
+    , is_defunct_(false)
     , max_reusable_write_objects_(max_reusable_write_objects)
     , address_(address) {
   tcp_.data = this;
@@ -288,6 +299,7 @@ Socket::~Socket() { cleanup_free_writes(); }
 
 void Socket::set_handler(SocketHandlerBase* handler) {
   handler_.reset(handler);
+  ++handler_generation_;
   cleanup_free_writes();
   free_writes_.clear();
   if (handler_) {
