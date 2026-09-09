@@ -541,8 +541,7 @@ OpenSslContext::OpenSslContext()
   SSL_CTX_set_cert_store(ssl_ctx_, trusted_store_);
   SSL_CTX_set_verify(ssl_ctx_, SSL_VERIFY_NONE, ssl_no_verify_callback);
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-  // Limit to TLS 1.2 for now. TLS 1.3 has broken the handshake code.
-  SSL_CTX_set_max_proto_version(ssl_ctx_, TLS1_2_VERSION);
+  SSL_CTX_set_max_proto_version(ssl_ctx_, TLS1_3_VERSION);
 #endif
 #if DEBUG_SSL
   SSL_CTX_set_info_callback(ssl_ctx_, ssl_info_callback);
@@ -631,6 +630,9 @@ CassError OpenSslContext::set_min_protocol_version(CassSslTlsVersion min_version
       break;
     case CassSslTlsVersion::CASS_SSL_VERSION_TLS1_2:
       method = TLS1_2_VERSION;
+      break;
+    case CassSslTlsVersion::CASS_SSL_VERSION_TLS1_3:
+      method = TLS1_3_VERSION;
       break;
     default:
       // unsupported version

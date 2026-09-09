@@ -431,7 +431,7 @@ TEST_F(SocketUnitTest, SslEnforceTlsVersion) {
 
   listen();
 
-  settings.ssl_context->set_min_protocol_version(CASS_SSL_VERSION_TLS1_2);
+  settings.ssl_context->set_min_protocol_version(CASS_SSL_VERSION_TLS1_3);
 
   bool is_error;
   SocketConnector::Ptr connector(new SocketConnector(
