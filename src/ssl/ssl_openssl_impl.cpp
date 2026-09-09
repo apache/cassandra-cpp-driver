@@ -632,6 +632,9 @@ CassError OpenSslContext::set_min_protocol_version(CassSslTlsVersion min_version
     case CassSslTlsVersion::CASS_SSL_VERSION_TLS1_2:
       method = TLS1_2_VERSION;
       break;
+    case CassSslTlsVersion::CASS_SSL_VERSION_TLS1_3:
+      method = TLS1_3_VERSION;
+      break;
     default:
       // unsupported version
       return CASS_ERROR_LIB_BAD_PARAMS;
