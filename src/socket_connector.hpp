@@ -138,6 +138,7 @@ public:
 private:
   void internal_connect(uv_loop_t* loop);
   void ssl_handshake();
+  void ssl_handshake_finish();
   void finish();
 
   void on_error(SocketError code, const String& message);

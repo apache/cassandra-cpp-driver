@@ -634,7 +634,8 @@ typedef enum CassSslVerifyFlags_ {
 typedef enum CassSslTlsVersion_ {
   CASS_SSL_VERSION_TLS1   = 0x00,
   CASS_SSL_VERSION_TLS1_1 = 0x01,
-  CASS_SSL_VERSION_TLS1_2 = 0x02
+  CASS_SSL_VERSION_TLS1_2 = 0x02,
+  CASS_SSL_VERSION_TLS1_3 = 0x03
 } CassSslTlsVersion;
 
 typedef enum CassProtocolVersion_ {
