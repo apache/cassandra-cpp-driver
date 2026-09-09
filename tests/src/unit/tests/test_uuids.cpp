@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "cassandra.h"
+#include "cassandra_uuid_operators.hpp"
 #include "get_time.hpp"
 #include "scoped_ptr.hpp"
 
@@ -168,4 +169,36 @@ TEST(UuidUnitTest, FromStringInvalid) {
   // String longer then str_length
   EXPECT_EQ(cass_uuid_from_string_n("00-00-00-00-11-11-11-11-22-22-22-22-deadbeaf", 36, &uuid),
             CASS_ERROR_LIB_BAD_PARAMS);
+}
+
+TEST(UuidUnitTest, Operators) {
+  CassUuid uuid1 = { 0x0000112233445566LL, 0x0000112233445566LL };
+  CassUuid uuid2 = { 0x0000112233445566LL, 0x0000112233445566LL };
+  CassUuid uuid3 = { 0x9988776655443322LL, 0x0000112233445566LL };
+  CassUuid uuid4 = { 0x9988776655443322LL, 0x9988776655443322LL };
+
+  // uuid1 == uuid2
+  EXPECT_TRUE(uuid1 == uuid2);
+  // uuid1 != uuid3
+  EXPECT_FALSE(uuid1 == uuid3);
+  // uuid1 != uuid4
+  EXPECT_FALSE(uuid1 == uuid4);
+  // uuid2 != uuid3
+  EXPECT_FALSE(uuid2 == uuid3);
+  // uuid2 != uuid3
+  EXPECT_FALSE(uuid2 == uuid4);
+  // uuid3 != uuid4
+  EXPECT_FALSE(uuid3 == uuid4);
+  // uuid1 >= uuid2
+  EXPECT_FALSE(uuid1 < uuid2);
+  // uuid1 < uuid3
+  EXPECT_TRUE(uuid1 < uuid3);
+  // uuid1 < uuid4
+  EXPECT_TRUE(uuid1 < uuid4);
+  // uuid2 < uuid3
+  EXPECT_TRUE(uuid2 < uuid3);
+  // uuid2 < uuid3
+  EXPECT_TRUE(uuid2 < uuid4);
+  // uuid3 < uuid4
+  EXPECT_TRUE(uuid3 < uuid4);
 }
