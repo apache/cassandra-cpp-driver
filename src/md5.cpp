@@ -146,7 +146,7 @@ void Md5::final(uint8_t* result) {
   result[14] = static_cast<uint8_t>(d_ >> 16);
   result[15] = static_cast<uint8_t>(d_ >> 24);
 
-  memset(this, 0, sizeof(Md5));
+  memset((void *)this, 0, sizeof(Md5));
 }
 
 // This processes one or more 64-byte data blocks, but does NOT update
