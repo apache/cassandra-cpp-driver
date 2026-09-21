@@ -341,6 +341,10 @@ void Integration::connect(Cluster cluster) {
       FAIL() << "Unable to build DDAC from Branch/Tag";
       return;
     }
+    if (Options::is_hcd()) {
+      FAIL() << "Unable to build HCD from Branch/Tag";
+      return;
+    }
     if (Options::is_dse()) {
       server_version_ = ccm_->get_dse_version();
     } else {

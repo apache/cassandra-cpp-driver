@@ -29,7 +29,7 @@ namespace CCM {
  */
 class ServerType {
 public:
-  enum Type { INVALID, CASSANDRA, DSE, DDAC };
+  enum Type { INVALID, CASSANDRA, DSE, DDAC, HCD };
 
   ServerType(Type type = INVALID)
       : type_(type) {}
@@ -45,6 +45,8 @@ public:
         return "DSE";
       case DDAC:
         return "DDAC";
+      case HCD:
+        return "HCD";
       default:
         return "INVALID";
     }
@@ -58,6 +60,8 @@ public:
         return "DataStax Enterprise";
       case DDAC:
         return "DataStax Distribution of Apache Cassandra";
+      case HCD:
+        return "Hyper-Converged Database";
       default:
         return "Invalid Server Type";
     }

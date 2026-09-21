@@ -326,7 +326,8 @@ bool CCM::Bridge::create_cluster(std::vector<unsigned short> data_center_nodes,
         } else {
           create_command.push_back(dse_version_.ccm_version());
         }
-        if (dse_credentials_type_ == DseCredentialsType::USERNAME_PASSWORD) {
+        // HCD is downloaded without DSE credentials
+        if (!is_hcd() && dse_credentials_type_ == DseCredentialsType::USERNAME_PASSWORD) {
           create_command.push_back("--dse-username=" + dse_username_);
           create_command.push_back("--dse-password=" + dse_password_);
         }
@@ -336,6 +337,8 @@ bool CCM::Bridge::create_cluster(std::vector<unsigned short> data_center_nodes,
       create_command.push_back("--dse");
     } else if (is_ddac()) {
       create_command.push_back("--ddac");
+    } else if (is_hcd()) {
+      create_command.push_back("--hcd");
     }
     create_command.push_back("-b");
 
@@ -633,6 +636,8 @@ unsigned int CCM::Bridge::add_node(const std::string& data_center /*= ""*/) {
   }
   if (is_dse()) {
     add_node_command.push_back("--dse");
+  } else if (is_hcd()) {
+    add_node_command.push_back("--hcd");
   }
   add_node_command.push_back(generate_node_name(node));
   execute_ccm_command(add_node_command);

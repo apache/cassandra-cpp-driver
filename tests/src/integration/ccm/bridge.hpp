@@ -40,7 +40,7 @@ typedef struct _LIBSSH2_CHANNEL LIBSSH2_CHANNEL;
 
 // Default values
 #define DEFAULT_CASSANDRA_VERSION CassVersion("3.11.6")
-#define DEFAULT_DSE_VERSION DseVersion("6.7.7")
+#define DEFAULT_DSE_VERSION DseVersion("6.9.0")
 #define DEFAULT_USE_GIT false
 #define DEFAULT_USE_INSTALL_DIR false
 #define DEFAULT_SERVER_TYPE ServerType(ServerType::CASSANDRA)
@@ -521,6 +521,13 @@ public:
    * @return True if DDAC; false otherwise
    */
   bool is_ddac() { return server_type_ == ServerType::DDAC; }
+
+  /**
+   * Determine if server type is Hyper-Converged Database
+   *
+   * @return True if HCD; false otherwise
+   */
+  bool is_hcd() { return server_type_ == ServerType::HCD; }
 
   /**
    * Force decommission of a node on the active Cassandra cluster
