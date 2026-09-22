@@ -452,6 +452,15 @@ public:
   bool decommission_node(unsigned int node, bool is_force = false);
 
   /**
+   * Drain a node on the active Cassandra cluster (CEP-59). Draining a node
+   * causes it to send a GRACEFUL_DISCONNECT event on registered connections
+   * before closing the transport.
+   *
+   * @param node Node to drain
+   */
+  void drain_node(unsigned int node);
+
+  /**
    * Disable binary protocol for a node on the active Cassandra cluster
    *
    * @param node Node to disable binary protocol

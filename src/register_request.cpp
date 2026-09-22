@@ -46,6 +46,12 @@ int RegisterRequest::encode(ProtocolVersion version, RequestCallback* callback,
     length += events.back().size();
   }
 
+  if (event_types_ & CASS_EVENT_GRACEFUL_DISCONNECT) {
+    events.push_back("GRACEFUL_DISCONNECT");
+    length += sizeof(uint16_t);
+    length += events.back().size();
+  }
+
   bufs->push_back(Buffer(length));
   bufs->back().encode_string_list(0, events);
 

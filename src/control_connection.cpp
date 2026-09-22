@@ -25,6 +25,7 @@
 #include "load_balancing.hpp"
 #include "logger.hpp"
 #include "metadata.hpp"
+#include "metrics.hpp"
 #include "query_request.hpp"
 #include "result_iterator.hpp"
 #include "result_response.hpp"
@@ -309,12 +310,14 @@ static NopControlConnectionListener nop_listener__;
 ControlConnectionSettings::ControlConnectionSettings()
     : use_schema(CASS_DEFAULT_USE_SCHEMA)
     , use_token_aware_routing(CASS_DEFAULT_USE_TOKEN_AWARE_ROUTING)
+    , graceful_disconnect(CASS_DEFAULT_GRACEFUL_DISCONNECT_ENABLED)
     , address_factory(new AddressFactory()) {}
 
 ControlConnectionSettings::ControlConnectionSettings(const Config& config)
     : connection_settings(config)
     , use_schema(config.use_schema())
     , use_token_aware_routing(config.token_aware_routing())
+    , graceful_disconnect(config.graceful_disconnect())
     , address_factory(create_address_factory_from_config(config)) {}
 
 ControlConnector::ControlConnector(const Host::Ptr& host, ProtocolVersion protocol_version,
@@ -331,13 +334,14 @@ ControlConnection::ControlConnection(const Connection::Ptr& connection,
                                      const ControlConnectionSettings& settings,
                                      const VersionNumber& server_version,
                                      const VersionNumber& dse_server_version,
-                                     ListenAddressMap listen_addresses)
+                                     ListenAddressMap listen_addresses, Metrics* metrics)
     : connection_(connection)
     , settings_(settings)
     , server_version_(server_version)
     , dse_server_version_(dse_server_version)
     , listen_addresses_(listen_addresses)
-    , listener_(listener ? listener : &nop_listener__) {
+    , listener_(listener ? listener : &nop_listener__)
+    , metrics_(metrics) {
   connection_->set_listener(this);
   inc_ref();
 }
@@ -732,6 +736,19 @@ void ControlConnection::on_event(const EventResponse::Ptr& response) {
           listener_->on_down(response->affected_node());
           break;
         }
+      }
+      break;
+    }
+
+    case CASS_EVENT_GRACEFUL_DISCONNECT: {
+      // The connection has already started draining itself (CEP-59); once the
+      // drain completes it closes and the cluster reconnects the control
+      // connection to another host.
+      LOG_INFO("Received GRACEFUL_DISCONNECT event on control connection to host %s, "
+               "the server is shutting down gracefully",
+               connection_->address_string().c_str());
+      if (metrics_) {
+        metrics_->graceful_disconnects.inc();
       }
       break;
     }

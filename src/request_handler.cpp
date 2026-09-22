@@ -384,6 +384,12 @@ void RequestHandler::internal_retry(RequestExecution* request_execution) {
             request_execution->next_host();
             break;
 
+          case Request::REQUEST_ERROR_CONNECTION_DRAINING:
+            // The connection is draining because its host is shutting down
+            // gracefully (CEP-59); retry with next host.
+            request_execution->next_host();
+            break;
+
           case Request::REQUEST_ERROR_BATCH_WITH_NAMED_VALUES:
           case Request::REQUEST_ERROR_PARAMETER_UNSET:
           case Request::REQUEST_ERROR_UNSUPPORTED_PROTOCOL:

@@ -73,6 +73,7 @@ public:
       , prepare_on_all_hosts_(CASS_DEFAULT_PREPARE_ON_ALL_HOSTS)
       , prepare_on_up_or_add_host_(CASS_DEFAULT_PREPARE_ON_UP_OR_ADD_HOST)
       , no_compact_(CASS_DEFAULT_NO_COMPACT)
+      , graceful_disconnect_(CASS_DEFAULT_GRACEFUL_DISCONNECT_ENABLED)
       , is_client_id_set_(false)
       , host_listener_(new DefaultHostListener())
       , monitor_reporting_interval_secs_(CASS_DEFAULT_CLIENT_MONITOR_EVENTS_INTERVAL_SECS)
@@ -331,6 +332,10 @@ public:
 
   bool no_compact() const { return no_compact_; }
 
+  bool graceful_disconnect() const { return graceful_disconnect_; }
+
+  void set_graceful_disconnect(bool enabled) { graceful_disconnect_ = enabled; }
+
   void set_no_compact(bool enabled) { no_compact_ = enabled; }
 
   const String& application_name() const { return application_name_; }
@@ -442,6 +447,7 @@ private:
   bool prepare_on_up_or_add_host_;
   Address local_address_;
   bool no_compact_;
+  bool graceful_disconnect_;
   String application_name_;
   String application_version_;
   bool is_client_id_set_;

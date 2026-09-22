@@ -68,6 +68,12 @@ public:
   void close();
 
   /**
+   * Start a graceful drain of the wrapped connection (CEP-59): in-flight
+   * requests are allowed to complete before the connection is closed.
+   */
+  void start_graceful_drain();
+
+  /**
    * Get the number of outstanding requests.
    *
    * @return The number of outstanding requests.
@@ -85,6 +91,7 @@ public:
   const String& keyspace() const { return connection_->keyspace(); } // Test only
 
 private:
+  virtual void on_event(const EventResponse::Ptr& response);
   virtual void on_read();
   virtual void on_write();
   virtual void on_close(Connection* connection);

@@ -140,6 +140,8 @@ void cass_session_get_metrics(const CassSession* session, CassMetrics* metrics) 
   metrics->errors.connection_timeouts = internal_metrics->connection_timeouts.sum();
   metrics->errors.pending_request_timeouts = 0; // Deprecated
   metrics->errors.request_timeouts = internal_metrics->request_timeouts.sum();
+
+  metrics->events.graceful_disconnects = internal_metrics->graceful_disconnects.sum();
 }
 
 void cass_session_get_speculative_execution_metrics(const CassSession* session,

@@ -185,6 +185,16 @@ public:
 
   const StringMultimap& supported_options() const { return supported_options_; }
 
+  /**
+   * Whether a SUPPORTED response advertises the CEP-59 graceful disconnect
+   * capability. The server may send the key with an explicit "false" value
+   * when the feature is disabled.
+   *
+   * @param supported_options The options from a SUPPORTED response.
+   * @return Returns true if the capability is advertised.
+   */
+  static bool supports_graceful_disconnect(const StringMultimap& supported_options);
+
   ConnectionError error_code() { return error_code_; }
   const String& error_message() { return error_message_; }
 

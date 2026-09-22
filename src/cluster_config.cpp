@@ -497,6 +497,11 @@ CassError cass_cluster_set_no_compact(CassCluster* cluster, cass_bool_t enabled)
   return CASS_OK;
 }
 
+CassError cass_cluster_set_graceful_disconnect(CassCluster* cluster, cass_bool_t enabled) {
+  cluster->config().set_graceful_disconnect(enabled == cass_true);
+  return CASS_OK;
+}
+
 CassError cass_cluster_set_host_listener_callback(CassCluster* cluster,
                                                   CassHostListenerCallback callback, void* data) {
   cluster->config().set_host_listener(
