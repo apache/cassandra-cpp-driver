@@ -43,6 +43,8 @@ public:
 
   enum Type { FUTURE_TYPE_GENERIC, FUTURE_TYPE_SESSION, FUTURE_TYPE_RESPONSE };
 
+  enum SetState { UNSTARTED, STARTED, FINISHED };
+
   struct Error : public Allocated {
     Error(CassError code, const String& message)
         : code(code)
@@ -53,9 +55,10 @@ public:
   };
 
   Future(Type type)
-      : is_set_(false)
+      : state_(UNSTARTED)
       , type_(type)
-      , callback_(NULL) {
+      , callback_(NULL)
+      , set_caller_(0) {
     uv_mutex_init(&mutex_);
     uv_cond_init(&cond_);
   }
@@ -69,7 +72,7 @@ public:
 
   bool ready() {
     ScopedMutex lock(&mutex_);
-    return is_set_;
+    return is_set();
   }
 
   virtual void wait() {
@@ -95,7 +98,7 @@ public:
 
   bool set_error(CassError code, const String& message) {
     ScopedMutex lock(&mutex_);
-    if (!is_set_) {
+    if (is_unstarted()) {
       internal_set_error(code, message, lock);
       return true;
     }
@@ -105,26 +108,52 @@ public:
   bool set_callback(Callback callback, void* data);
 
 protected:
-  bool is_set() const { return is_set_; }
+
+  bool is_unstarted() const { return state_ == UNSTARTED; }
+
+  bool is_set() const { return state_ == FINISHED; }
+
+  bool is_set_caller() {
+    /* CASSCPP-6 If we're being called by the thread setting the future just return immediately */
+    uv_thread_t me = uv_thread_self();
+    const uv_thread_t caller = set_caller_;
+    return set_caller_ && uv_thread_equal(&caller, &me);
+  }
 
   void internal_wait(ScopedMutex& lock) {
-    while (!is_set_) {
+    if (is_set_caller()) {
+      return;
+    }
+    while (!is_set()) {
       uv_cond_wait(&cond_, lock.get());
     }
   }
 
   bool internal_wait_for(ScopedMutex& lock, uint64_t timeout_us) {
-    if (!is_set_) {
+    if (is_set_caller()) {
+      return false;
+    }
+    if (!is_set()) {
       if (uv_cond_timedwait(&cond_, lock.get(), timeout_us * 1000) != 0) { // Expects nanos
         return false;
       }
     }
-    return is_set_;
+    return is_set();
   }
 
   void internal_set(ScopedMutex& lock);
 
   void internal_set_error(CassError code, const String& message, ScopedMutex& lock) {
+
+    /* If the future has already been set (or another thread is already working on it) return immediately.
+
+       We do not change the value of state_ to started because internal_set() performs a similar check and
+       doing so here would lead to an early return from that function.  We'll let the subsequent call to
+       internal_set() take care of any state updates. */
+    if (state_ != UNSTARTED) {
+      return;
+    }
+
     error_.reset(new Error(code, message));
     internal_set(lock);
   }
@@ -132,12 +161,13 @@ protected:
   uv_mutex_t mutex_;
 
 private:
-  bool is_set_;
+  SetState state_;
   uv_cond_t cond_;
   Type type_;
   ScopedPtr<Error> error_;
   Callback callback_;
   void* data_;
+  uv_thread_t set_caller_;
 
 private:
   DISALLOW_COPY_AND_ASSIGN(Future);

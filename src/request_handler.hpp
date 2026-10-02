@@ -84,7 +84,10 @@ public:
 
   bool set_response(Address address, const Response::Ptr& response) {
     ScopedMutex lock(&mutex_);
-    if (!is_set()) {
+    /* CASSCPP-6 We may still be able to get the mutex even if another thread is in internal_set() but in that case
+       future.state should have moved to at least STARTED... so we only proceed here if the future is still in an UNSTARTED
+       state.  */
+    if (is_unstarted()) {
       address_ = address;
       response_ = response;
       internal_set(lock);
@@ -101,7 +104,7 @@ public:
 
   bool set_error_with_address(Address address, CassError code, const String& message) {
     ScopedMutex lock(&mutex_);
-    if (!is_set()) {
+    if (is_unstarted()) {
       address_ = address;
       internal_set_error(code, message, lock);
       return true;
@@ -112,7 +115,7 @@ public:
   bool set_error_with_response(Address address, const Response::Ptr& response, CassError code,
                                const String& message) {
     ScopedMutex lock(&mutex_);
-    if (!is_set()) {
+    if (is_unstarted()) {
       address_ = address;
       response_ = response;
       internal_set_error(code, message, lock);
