@@ -81,6 +81,21 @@ public:
   };
 
   /**
+   * Returns the keyspace a request operates on. Up to v4 the keyspace is tracked per
+   * connection and only changed by an explicit USE query. From v5 onwards the driver
+   * carries the keyspace inside the PREPARE/EXECUTE parameters instead, so no USE is sent.
+   */
+  static const String& effective_keyspace(const mockssandra::Request* request,
+                                          const mockssandra::QueryParameters& params) {
+    return params.keyspace.empty() ? request->client()->keyspace() : params.keyspace;
+  }
+
+  static const String& effective_keyspace(const mockssandra::Request* request,
+                                          const mockssandra::PrepareParameters& params) {
+    return params.keyspace.empty() ? request->client()->keyspace() : params.keyspace;
+  }
+
+  /**
    * Action that handles PREPARE requests. It records prepared statements in an instance of
    * `PrepareStatements`.
    */
@@ -95,13 +110,18 @@ public:
       PrepareParameters params;
       if (!request->decode_prepare(&query, &params)) {
         request->error(ERROR_PROTOCOL_ERROR, "Invalid prepare message");
-      } else if (request->client()->keyspace() != keyspace_) {
+      } else if (effective_keyspace(request, params) != keyspace_) {
         request->error(ERROR_INVALID_QUERY, "Invalid keyspace");
       } else {
         String id = statements_->put_query(request->address(), query);
         String body;
         encode_int32(RESULT_PREPARED, &body);
         encode_string(id, &body); // Prepared ID
+        if (request->version() >= 5) {
+          // v5 inserts the result set metadata ID between the prepared ID and
+          // the bind markers metadata.
+          encode_string(id, &body);
+        }
         // Metadata
         bool global_table_spec = !keyspace_.empty();
         encode_int32(global_table_spec ? RESULT_FLAG_GLOBAL_TABLESPEC : 0, &body); // Flags
@@ -140,7 +160,7 @@ public:
       QueryParameters params;
       if (!request->decode_execute(&id, &params)) {
         request->error(ERROR_PROTOCOL_ERROR, "Invalid execute message");
-      } else if (request->client()->keyspace() != keyspace_) {
+      } else if (effective_keyspace(request, params) != keyspace_) {
         request->error(ERROR_INVALID_QUERY, "Invalid keyspace");
       } else if (!statements_->contains_id(request->address(), id)) {
         String body;

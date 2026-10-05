@@ -1446,7 +1446,12 @@ Request::Request(int8_t version, int8_t flags, int16_t stream, int8_t opcode, co
 void Request::write(int8_t opcode, const String& body) { write(stream_, opcode, body); }
 
 void Request::write(int16_t stream, int8_t opcode, const String& body) {
-  client_->write(encode_header(version_, flags_, stream, opcode, body.size()) + body);
+  String envelope = encode_header(version_, flags_, stream, opcode, body.size()) + body;
+  if (!client_->use_frame_codec()) {
+    client_->write(envelope);
+    return;
+  }
+  client_->write(FrameCodec::encode(envelope));
 }
 
 void Request::error(int32_t code, const String& message) {
@@ -1486,8 +1491,13 @@ bool Request::decode_query(String* query, QueryParameters* params) {
 }
 
 bool Request::decode_execute(String* id, QueryParameters* params) {
-  return decode_query_params(version_, decode_string(start(), end(), id), end(), true, params) ==
-         end();
+  const char* pos = decode_string(start(), end(), id);
+  if (version_ >= 5) {
+    // v5 carries the result set metadata ID that came back with PREPARE.
+    String result_metadata_id;
+    pos = decode_string(pos, end(), &result_metadata_id);
+  }
+  return decode_query_params(version_, pos, end(), true, params) == end();
 }
 
 bool Request::decode_prepare(String* query, PrepareParameters* params) {
@@ -1980,18 +1990,53 @@ const RequestHandler* RequestHandler::Builder::build() {
 }
 
 void ProtocolHandler::decode(ClientConnection* client, const char* data, int32_t len) {
-  buffer_.append(data, len);
-  int32_t result = decode_frame(client, buffer_.data(), buffer_.size());
-  if (result > 0) {
-    if (static_cast<size_t>(result) == buffer_.size()) {
-      buffer_.clear();
-    } else {
-      // Not efficient, but concise. Copy the consumed part of the buffer
-      // forward then resize the buffer to what's left over.
-      std::copy(buffer_.begin() + result, buffer_.end(), buffer_.begin());
-      buffer_.resize(buffer_.size() - result);
-    }
+  if (use_frame_codec()) {
+    decode_framed(client, data, len);
+    return;
   }
+
+  buffer_.append(data, len);
+  trim_buffer(decode_frame(client, buffer_.data(), buffer_.size()));
+}
+
+bool ProtocolHandler::decode_framed(ClientConnection* client, const char* data, int32_t len) {
+  frame_decoder_.feed(data, len);
+
+  const char* payload = NULL;
+  size_t payload_size = 0;
+
+  while (true) {
+    FrameDecoder::Result result = frame_decoder_.next(&payload, &payload_size);
+    if (result == FrameDecoder::RESULT_NEED_MORE) {
+      return true;
+    }
+    if (result == FrameDecoder::RESULT_ERROR) {
+      LOG_ERROR("Mock server v5 frame error: %s", frame_decoder_.error());
+      client->close();
+      return false;
+    }
+
+    // A frame payload holds one or more complete envelopes. Hand it to the
+    // regular parser, which loops internally and keeps its own state so an
+    // envelope may also straddle a frame boundary; any partial tail is left in
+    // buffer_ for the next payload.
+    buffer_.assign(payload, payload_size);
+    trim_buffer(decode_frame(client, buffer_.data(), buffer_.size()));
+  }
+}
+
+void ProtocolHandler::trim_buffer(int32_t count) {
+  if (count <= 0) {
+    return;
+  }
+  if (static_cast<size_t>(count) >= buffer_.size()) {
+    buffer_.clear();
+    return;
+  }
+  // Not efficient, but concise. Copy the consumed part of the buffer
+  // forward then resize the buffer to what's left over.
+  std::copy(buffer_.begin() + count, buffer_.end(), buffer_.begin());
+  buffer_.resize(buffer_.size() - count);
 }
 
 int32_t ProtocolHandler::decode_frame(ClientConnection* client, const char* frame, int32_t len) {
@@ -2072,6 +2117,14 @@ int32_t ProtocolHandler::decode_frame(ClientConnection* client, const char* fram
 void ProtocolHandler::decode_body(ClientConnection* client, const char* body, int32_t len) {
   Request::Ptr request(new Request(version_, flags_, stream_, opcode_, String(body, len), client));
   request_handler_->run(request.get());
+
+  // The server only starts framing after it has sent its READY or AUTHENTICATE
+  // response to STARTUP, so latch this once the handler has written it. Requests
+  // are remembered here because version_ is reset after every envelope.
+  if (opcode_ == OPCODE_STARTUP) {
+    negotiated_version_ = version_;
+    handshake_complete_ = true;
+  }
 }
 
 void ClientConnection::on_read(const char* data, size_t len) { handler_.decode(this, data, len); }
@@ -2085,9 +2138,12 @@ void Event::run(internal::ServerConnection* server_connection) {
        it != end; ++it) {
     ClientConnection* client = static_cast<ClientConnection*>(*it);
     if (client->is_registered_for_events() && client->protocol_version() > 0) {
-      client->write(
+      String envelope =
           encode_header(client->protocol_version(), 0, -1, OPCODE_EVENT, event_body_.size()) +
-          event_body_);
+          event_body_;
+      // Server pushes follow the same framing rules as responses, so once the
+      // STARTUP handshake is done they have to be wrapped in a frame.
+      client->write(client->use_frame_codec() ? FrameCodec::encode(envelope) : envelope);
     }
   }
 }

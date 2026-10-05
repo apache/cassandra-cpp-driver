@@ -91,6 +91,7 @@ public:
       : opcode_(opcode)
       , flags_(0)
       , timestamp_(CASS_INT64_MIN)
+      , now_in_seconds_(CASS_INT32_MIN)
       , record_attempted_addresses_(false) {}
 
   virtual ~Request() {}
@@ -147,6 +148,15 @@ public:
 
   void set_timestamp(int64_t timestamp) { timestamp_ = timestamp; }
 
+  /**
+   * Protocol v5 only. Seconds since the epoch to be used as "now" for the
+   * request, superseding the connection's server side time. `CASS_INT32_MIN`
+   * means unset, in which case the flag is not sent.
+   */
+  int32_t now_in_seconds() const { return now_in_seconds_; }
+
+  void set_now_in_seconds(int32_t now_in_seconds) { now_in_seconds_ = now_in_seconds; }
+
   bool record_attempted_addresses() const { return record_attempted_addresses_; }
 
   void set_record_attempted_addresses(bool record_attempted_addresses) {
@@ -196,6 +206,7 @@ private:
   uint8_t flags_;
   RequestSettings settings_;
   int64_t timestamp_;
+  int32_t now_in_seconds_;
   bool record_attempted_addresses_;
   CustomPayload::ConstPtr custom_payload_;
   CustomPayload custom_payload_extra_;

@@ -1,3 +1,26 @@
+2.18.0
+===========
+
+Features
+--------
+* [CPP-1000] Native protocol v5 support. Framing (CRC24 header, CRC32 trailer,
+  split frames up to 131071 bytes), per-request keyspace for QUERY/EXECUTE and
+  BATCH, and the Now_in_seconds query flag. Uncompressed framing only.
+
+Compatibility
+-------------
+* This version negotiates protocol v5 by default when the server supports it.
+  Set `cass_cluster_set_protocol_version(cluster, CASS_PROTOCOL_VERSION_V4)` to
+  pin v4, or `CASS_PROTOCOL_VERSION_DSEV2` for DataStax Enterprise.
+* Verified against Apache Cassandra 5.0.9 over both v5 and v4.
+
+Known Limitations
+-----------------
+* Compressed frames are not implemented. A server that negotiates frame
+  compression is not supported.
+* `Now_in_seconds` has no public C API; it is currently internal only.
+* The full unit suite requires exclusive use of port 9042.
+
 2.17.1
 ===========
 

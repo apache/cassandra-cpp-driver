@@ -17,6 +17,7 @@
 */
 
 #include "event_response.hpp"
+#include "frame.hpp"
 #include "request_callback.hpp"
 #include "socket.hpp"
 #include "stream_manager.hpp"
@@ -209,6 +210,19 @@ public:
   const Address& resolved_address() const { return socket_->address(); }
   const Host::Ptr& host() const { return host_; }
   ProtocolVersion protocol_version() const { return protocol_version_; }
+
+  /**
+   * Whether reads and writes use the protocol v5 frame format.
+   *
+   * Framing only applies once the initial handshake has completed. Per the
+   * specification the STARTUP message, any OPTIONS messages preceding it, and
+   * the SUPPORTED/READY/AUTHENTICATE responses are all exchanged unframed;
+   * everything after the server's READY or AUTHENTICATE response is framed.
+   */
+  bool use_frame_codec() const {
+    return handshake_complete_ && protocol_version_.supports_framing();
+  }
+
   const String& keyspace() { return keyspace_; }
   uv_loop_t* loop() { return socket_->loop(); }
   const uv_tcp_t* handle() const { return socket_->handle(); }
@@ -220,6 +234,20 @@ private:
 
   void on_write(int status, RequestCallback* request);
   void on_read(const char* buf, size_t size);
+
+  /**
+   * Feed socket bytes through the v5 frame decoder, dispatching every complete
+   * de-framed payload to the response message decoder.
+   */
+  void on_read_framed(const char* buf, size_t size);
+
+  /**
+   * Dispatch a fully decoded response message to its stream callback.
+   *
+   * @return false if the connection has been defuncted and reading must stop.
+   */
+  bool process_response(ScopedPtr<ResponseMessage>& response);
+
   void on_close();
 
 private:
@@ -237,6 +265,7 @@ private:
 
   List<SocketRequest> pending_reads_;
   ScopedPtr<ResponseMessage> response_;
+  FrameDecoder frame_decoder_;
 
   ConnectionListener* listener_;
 
@@ -245,6 +274,7 @@ private:
 
   unsigned int idle_timeout_secs_;
   unsigned int heartbeat_interval_secs_;
+  bool handshake_complete_;
   bool heartbeat_outstanding_;
   Timer heartbeat_timer_;
   Timer terminate_timer_;

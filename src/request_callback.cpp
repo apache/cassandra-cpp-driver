@@ -22,6 +22,7 @@
 #include "constants.hpp"
 #include "execute_request.hpp"
 #include "execution_profile.hpp"
+#include "frame.hpp"
 #include "logger.hpp"
 #include "metrics.hpp"
 #include "query_request.hpp"
@@ -47,6 +48,7 @@ void RequestWrapper::init(const ExecutionProfile& profile,
 
 void RequestCallback::notify_write(Connection* connection, int stream) {
   protocol_version_ = connection->protocol_version();
+  framed_ = connection->use_frame_codec();
   stream_ = stream;
   on_write(connection);
 }
@@ -97,7 +99,35 @@ int32_t RequestCallback::encode(BufferVec* bufs) {
   buf.encode_int32(pos, length);
   (*bufs)[index] = buf;
 
-  return length + header_size;
+  const size_t envelope_size = length + header_size;
+
+  if (!framed_) {
+    return static_cast<int32_t>(envelope_size);
+  }
+
+  if (envelope_size <= FrameCodec::MAX_PAYLOAD_LENGTH) {
+    // Common case: one self contained frame. Splice the frame header in ahead of
+    // the envelope and append the CRC32 trailer. The payload buffers are
+    // referenced directly rather than copied.
+    Buffer frame_header(FrameCodec::UNCOMPRESSED_HEADER_SIZE);
+    FrameCodec::encode_header(frame_header.data(), envelope_size, true);
+    bufs->insert(bufs->begin() + index, frame_header);
+
+    Buffer trailer(FrameCodec::TRAILER_SIZE);
+    FrameCodec::encode_trailer(trailer.data(),
+                               FrameCodec::payload_crc(*bufs, index + 1, bufs->size()));
+    bufs->push_back(trailer);
+
+    return static_cast<int32_t>(envelope_size + FrameCodec::OVERHEAD);
+  }
+
+  // Rare case: the envelope is too large for a single frame and has to be
+  // split across several, which requires reworking the buffer list.
+  BufferVec framed;
+  const int32_t framed_size = FrameCodec::encode(*bufs, index, bufs->size(), &framed);
+  bufs->resize(index);
+  bufs->insert(bufs->end(), framed.begin(), framed.end());
+  return framed_size;
 }
 
 void RequestCallback::on_close() {

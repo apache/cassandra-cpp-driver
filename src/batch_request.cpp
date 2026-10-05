@@ -25,6 +25,7 @@
 #include "request_callback.hpp"
 #include "serialization.hpp"
 #include "statement.hpp"
+#include "utils.hpp"
 
 using namespace datastax;
 using namespace datastax::internal::core;
@@ -157,12 +158,8 @@ int BatchRequest::encode(ProtocolVersion version, RequestCallback* callback,
     // <consistency> [short]
     size_t buf_size = sizeof(uint16_t);
 
-    // <flags>[<serial_consistency><timestamp><keyspace>]
-    if (version >= CASS_PROTOCOL_VERSION_V5) {
-      buf_size += sizeof(int32_t); // [int]
-    } else {
-      buf_size += sizeof(uint8_t); // [byte]
-    }
+    // <flags>[<serial_consistency><timestamp><keyspace><now_in_seconds>]
+    buf_size += version.query_flags_size(); // [int] (v5+) or [byte]
 
     if (callback->serial_consistency() != 0) {
       buf_size += sizeof(uint16_t); // [short]
@@ -174,15 +171,25 @@ int BatchRequest::encode(ProtocolVersion version, RequestCallback* callback,
       flags |= CASS_QUERY_FLAG_DEFAULT_TIMESTAMP;
     }
 
-    if (version.supports_set_keyspace() && !keyspace().empty()) {
-      buf_size += sizeof(uint16_t) + keyspace().size();
+    if (version.supports_now_in_seconds() && callback->now_in_seconds() != CASS_INT32_MIN) {
+      buf_size += sizeof(int32_t); // <now_in_seconds> [int]
+      flags |= CASS_QUERY_FLAG_NOW_IN_SECONDS;
+    }
+
+    // The v5 keyspace field holds the keyspace name itself rather than a CQL
+    // identifier, so remove any quoting the caller supplied.
+    String wire_keyspace = version.supports_set_keyspace() ? unescape_id(keyspace()) : String();
+
+    if (!wire_keyspace.empty()) {
+      buf_size += sizeof(uint16_t) + wire_keyspace.size();
       flags |= CASS_QUERY_FLAG_WITH_KEYSPACE;
     }
 
     Buffer buf(buf_size);
 
     size_t pos = buf.encode_uint16(0, callback->consistency());
-    if (version >= CASS_PROTOCOL_VERSION_V5) {
+    if (version.query_flags_size() == sizeof(int32_t)) {
+      // v5 widened <flags> to [int] to make room for With_now_in_seconds.
       pos = buf.encode_int32(pos, flags);
     } else {
       pos = buf.encode_byte(pos, static_cast<uint8_t>(flags));
@@ -196,8 +203,12 @@ int BatchRequest::encode(ProtocolVersion version, RequestCallback* callback,
       pos = buf.encode_int64(pos, callback->timestamp());
     }
 
-    if (version.supports_set_keyspace() && !keyspace().empty()) {
-      pos = buf.encode_string(pos, keyspace().data(), static_cast<uint16_t>(keyspace().size()));
+    if (!wire_keyspace.empty()) {
+      pos = buf.encode_string(pos, wire_keyspace.data(), static_cast<uint16_t>(wire_keyspace.size()));
+    }
+
+    if (version.supports_now_in_seconds() && callback->now_in_seconds() != CASS_INT32_MIN) {
+      pos = buf.encode_int32(pos, callback->now_in_seconds());
     }
 
     bufs->push_back(buf);

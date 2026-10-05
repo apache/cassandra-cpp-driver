@@ -30,6 +30,7 @@
 #include "string_ref.hpp"
 #include "tuple.hpp"
 #include "user_type_value.hpp"
+#include "utils.hpp"
 
 #include <uv.h>
 
@@ -378,11 +379,7 @@ int32_t Statement::encode_begin(ProtocolVersion version, uint16_t element_count,
 
   query_params_buf_size += sizeof(uint16_t); // <consistency> [short]
 
-  if (version >= CASS_PROTOCOL_VERSION_V5) {
-    query_params_buf_size += sizeof(int32_t); // <flags> [int]
-  } else {
-    query_params_buf_size += sizeof(uint8_t); // <flags> [byte]
-  }
+  query_params_buf_size += version.query_flags_size(); // <flags> [int] (v5+) or [byte]
 
   if (element_count > 0) {
     query_params_buf_size += sizeof(uint16_t); // <n> [short]
@@ -405,6 +402,10 @@ int32_t Statement::encode_begin(ProtocolVersion version, uint16_t element_count,
     flags |= CASS_QUERY_FLAG_DEFAULT_TIMESTAMP;
   }
 
+  if (version.supports_now_in_seconds() && callback->now_in_seconds() != CASS_INT32_MIN) {
+    flags |= CASS_QUERY_FLAG_NOW_IN_SECONDS;
+  }
+
   if (with_keyspace(version)) {
     flags |= CASS_QUERY_FLAG_WITH_KEYSPACE;
   }
@@ -415,7 +416,8 @@ int32_t Statement::encode_begin(ProtocolVersion version, uint16_t element_count,
   Buffer& buf = bufs->back();
   size_t pos = buf.encode_uint16(0, callback->consistency());
 
-  if (version >= CASS_PROTOCOL_VERSION_V5) {
+  if (version.query_flags_size() == sizeof(int32_t)) {
+    // v5 widened <flags> to [int] to make room for With_now_in_seconds.
     pos = buf.encode_int32(pos, flags);
   } else {
     pos = buf.encode_byte(pos, static_cast<uint8_t>(flags));
@@ -466,6 +468,9 @@ int32_t Statement::encode_end(ProtocolVersion version, RequestCallback* callback
   size_t paging_buf_size = 0;
 
   bool with_keyspace = this->with_keyspace(version);
+  // The v5 keyspace field holds the keyspace name itself rather than a CQL
+  // identifier, so remove any quoting the caller supplied.
+  String keyspace = with_keyspace ? unescape_id(this->keyspace()) : String();
 
   if (page_size() > 0) {
     paging_buf_size += sizeof(int32_t); // [int]
@@ -483,8 +488,12 @@ int32_t Statement::encode_end(ProtocolVersion version, RequestCallback* callback
     paging_buf_size += sizeof(int64_t); // [long]
   }
 
-  if (with_keyspace) {
-    paging_buf_size += sizeof(uint16_t) + keyspace().size();
+  if (version.supports_now_in_seconds() && callback->now_in_seconds() != CASS_INT32_MIN) {
+    paging_buf_size += sizeof(int32_t); // <now_in_seconds> [int]
+  }
+
+  if (!keyspace.empty()) {
+    paging_buf_size += sizeof(uint16_t) + keyspace.size();
   }
 
   if (paging_buf_size > 0) {
@@ -510,8 +519,13 @@ int32_t Statement::encode_end(ProtocolVersion version, RequestCallback* callback
       pos = buf.encode_int64(pos, callback->timestamp());
     }
 
-    if (with_keyspace) {
-      pos = buf.encode_string(pos, keyspace().data(), static_cast<uint16_t>(keyspace().size()));
+    if (!keyspace.empty()) {
+      pos = buf.encode_string(pos, keyspace.data(), static_cast<uint16_t>(keyspace.size()));
+    }
+
+    // <now_in_seconds> is the last field of <query_parameters>.
+    if (version.supports_now_in_seconds() && callback->now_in_seconds() != CASS_INT32_MIN) {
+      pos = buf.encode_int32(pos, callback->now_in_seconds());
     }
   }
 

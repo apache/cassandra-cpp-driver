@@ -87,19 +87,20 @@ public:
    */
   bool is_valid() const;
 
-  /**
-   * Check to see if the protocol version's value is DSE.
-   *
-   * @return true if DSE, otherwise false;
-   */
-  bool is_dse() const;
-
-  /**
-   * Check to see if the protocol version is a beta version.
+/**
+   * Check to see if the protocol version is a beta version. Beta versions
+   * require the USE_BETA frame flag and are not reported as valid.
    *
    * @return true if a beta version, otherwise false.
    */
   bool is_beta() const;
+
+  /**
+   * Check to see if the protocol version is DSE.
+   *
+   * @return true if DSE, otherwise false;
+   */
+  bool is_dse() const;
 
   /**
    * Returns the string representation for the protocol version.
@@ -132,6 +133,31 @@ public:
    * @return true if supported, otherwise false.
    */
   bool supports_result_metadata_id() const;
+
+  /**
+   * Check to see if the v5 frame format (framed envelopes with a CRC24 header
+   * checksum and a CRC32 payload trailer) is supported by the current protocol
+   * version.
+   *
+   * @return true if supported, otherwise false.
+   */
+  bool supports_framing() const;
+
+  /**
+   * The wire size of the query/batch <flags> field. Protocol v5 widened this
+   * from [byte] to [int].
+   *
+   * @return The number of bytes used to encode <flags>.
+   */
+  size_t query_flags_size() const;
+
+  /**
+   * Check to see if the With_now_in_seconds query flag is supported by the
+   * current protocol version.
+   *
+   * @return true if supported, otherwise false.
+   */
+  bool supports_now_in_seconds() const;
 
 public:
   bool operator<(ProtocolVersion version) const { return value_ < version.value_; }

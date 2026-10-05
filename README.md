@@ -67,6 +67,10 @@ to build the driver.  A version of libuv > 1.x is provided for Rocky Linux under
   * DSE [proxy authentication][DSE Proxy Authentication] and [proxy execution][DSE Proxy Execution]
   * [DSE DateRange]
 * Support for [DataStax Astra] Cloud Data Platform
+* Native protocol v5
+  * Frame format with CRC24 header and CRC32 trailer checksums
+  * Per-request keyspace for QUERY, EXECUTE, and BATCH
+  * Automatic protocol negotiation, downgrading to v4 or DSEv2 as needed
 
 ## Compatibility
 
@@ -74,8 +78,25 @@ This driver works exclusively with the Cassandra Query Language v3 (CQL3) and
 Cassandra's native protocol. The current version works with the following
 server versions:
 
-* Apache Cassandra® versions 3.0.x, 3.11.x and 4.0.x
+* Apache Cassandra® versions 3.0.x, 3.11.x, 4.0.x and 5.0.x
 * DSE versions 6.8.x and 5.1.x
+
+### Protocol v5
+
+Starting with 2.18.0 the driver negotiates native protocol v5 when the server
+supports it, and falls back to v4 (or DSEv2) otherwise. No code changes are
+required to use it. To pin a specific version:
+
+```c
+cass_cluster_set_protocol_version(cluster, CASS_PROTOCOL_VERSION_V5);
+```
+
+Current limitations:
+
+* Only uncompressed frames are implemented. A server that negotiates frame
+  compression is not supported.
+* The `Now_in_seconds` query flag is implemented internally but has no public
+  C API yet.
 
 Both 32-bit (x86) and 64-bit (x64) architectures are supported
 

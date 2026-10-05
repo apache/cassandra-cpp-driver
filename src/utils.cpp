@@ -147,6 +147,23 @@ static String& quote_id(String& str) {
 
 String& escape_id(String& str) { return is_lowercase(str) ? str : quote_id(str); }
 
+String unescape_id(const String& str) {
+  if (str.size() < 2 || str.front() != '"' || str.back() != '"') {
+    return str;
+  }
+
+  String result;
+  result.reserve(str.size() - 2);
+  for (size_t i = 1, end = str.size() - 1; i < end; ++i) {
+    char c = str[i];
+    if (c == '"' && i + 1 < end && str[i + 1] == '"') {
+      ++i; // Escaped quote
+    }
+    result.push_back(c);
+  }
+  return result;
+}
+
 int32_t get_pid() {
 #if (defined(WIN32) || defined(_WIN32))
   return static_cast<int32_t>(GetCurrentProcessId());

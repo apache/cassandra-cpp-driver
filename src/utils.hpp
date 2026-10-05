@@ -73,6 +73,15 @@ String& trim(String& str);
 
 String& escape_id(String& str);
 
+/**
+ * Reverse of `escape_id()`. Removes the surrounding double quotes of a quoted
+ * identifier and collapses doubled quotes. Needed because the driver accepts
+ * keyspaces as CQL identifiers (e.g. `"CaseSensitive"`), while protocol v5
+ * carries the keyspace name in a dedicated field where the quotes must not
+ * appear.
+ */
+String unescape_id(const String& str);
+
 inline size_t num_leading_zeros(int64_t value) {
   if (value == 0) return 64;
 

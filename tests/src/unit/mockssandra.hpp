@@ -29,6 +29,7 @@
 
 #include "address.hpp"
 #include "event_loop.hpp"
+#include "frame.hpp"
 #include "list.hpp"
 #include "map.hpp"
 #include "ref_counted.hpp"
@@ -57,6 +58,8 @@ using datastax::internal::Vector;
 using datastax::internal::core::Address;
 using datastax::internal::core::EventLoop;
 using datastax::internal::core::EventLoopGroup;
+using datastax::internal::core::FrameCodec;
+using datastax::internal::core::FrameDecoder;
 using datastax::internal::core::RoundRobinEventLoopGroup;
 using datastax::internal::core::Task;
 using datastax::internal::core::Timer;
@@ -267,7 +270,8 @@ enum {
   QUERY_FLAG_SERIAL_CONSISTENCY = 0x10,
   QUERY_FLAG_TIMESTAMP = 0x20,
   QUERY_FLAG_NAMES_FOR_VALUES = 0x40,
-  QUERY_FLAG_KEYSPACE = 0x80
+  QUERY_FLAG_KEYSPACE = 0x80,
+  QUERY_FLAG_NOW_IN_SECONDS = 0x100
 };
 
 enum { PREPARE_FLAGS_KEYSPACE = 0x01 };
@@ -350,6 +354,7 @@ typedef Vector<String> Names;
 struct PrepareParameters {
   int32_t flags;
   String keyspace;
+  int32_t now_in_seconds;
 };
 
 struct QueryParameters {
@@ -980,18 +985,47 @@ public:
       , flags_(0)
       , stream_(0)
       , opcode_(0)
-      , length_(0) {}
+      , length_(0)
+      , negotiated_version_(0)
+      , handshake_complete_(false) {}
 
   void decode(ClientConnection* client, const char* data, int32_t len);
 
+  /**
+   * Whether v5 framing is in effect, i.e. the STARTUP handshake has completed
+   * and the negotiated version supports framing. The server starts framing
+   * everything it sends after replying to STARTUP, so this only flips once the
+   * STARTUP response has been written.
+   */
+  bool use_frame_codec() const {
+    return handshake_complete_ && negotiated_version_ >= 5;
+  }
+
+  int negotiated_version() const { return negotiated_version_; }
+
 private:
   int32_t decode_frame(ClientConnection* client, const char* frame, int32_t len);
+
+  /**
+   * Feed raw socket bytes through the v5 frame decoder and run the envelopes
+   * of every complete frame through the normal parser.
+   *
+   * @return false if the connection was closed because of a framing error.
+   */
+  bool decode_framed(ClientConnection* client, const char* data, int32_t len);
+
+  /** Drop the first `count` consumed bytes from the envelope parse buffer. */
+  void trim_buffer(int32_t count);
+
   void decode_body(ClientConnection* client, const char* body, int32_t len);
 
   enum State { PROTOCOL_VERSION, HEADER, BODY };
 
 private:
+  /** Leftover bytes of a partially parsed envelope. */
   String buffer_;
+  /** Leftover bytes of a partially received frame. */
+  FrameDecoder frame_decoder_;
   const RequestHandler* request_handler_;
   State state_;
   int8_t version_;
@@ -999,6 +1033,8 @@ private:
   int16_t stream_;
   int8_t opcode_;
   int32_t length_;
+  int negotiated_version_;
+  bool handshake_complete_;
 };
 
 class ClientConnection : public internal::ClientConnection {
@@ -1017,6 +1053,9 @@ public:
 
   int protocol_version() const { return protocol_version_; }
   void set_protocol_version(int protocol_version) { protocol_version_ = protocol_version; }
+
+  /** Whether responses written on this connection must be wrapped in v5 frames. */
+  bool use_frame_codec() const { return handler_.use_frame_codec(); }
 
   bool is_registered_for_events() const { return is_registered_for_events_; }
   void set_registered_for_events() { is_registered_for_events_ = true; }

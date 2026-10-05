@@ -70,9 +70,9 @@ TEST_F(ProtocolVersionUnitTest, IsValid) {
     EXPECT_TRUE(v4.is_valid());
   }
 
-  { // Invalid (Cassandra beta version)
+  { // Valid
     ProtocolVersion v5(CASS_PROTOCOL_VERSION_V5);
-    EXPECT_FALSE(v5.is_valid());
+    EXPECT_TRUE(v5.is_valid());
   }
 
   { // Valid
@@ -97,9 +97,9 @@ TEST_F(ProtocolVersionUnitTest, IsBeta) {
     EXPECT_FALSE(vDSE2.is_beta());
   }
 
-  { // Valid beta
+  { // Not beta (v5 is GA)
     ProtocolVersion v5(CASS_PROTOCOL_VERSION_V5);
-    EXPECT_TRUE(v5.is_beta());
+    EXPECT_FALSE(v5.is_beta());
   }
 }
 
@@ -131,6 +131,9 @@ TEST_F(ProtocolVersionUnitTest, AttemptLowerSupported) {
 
   EXPECT_TRUE((version = version.previous()).is_valid());
   EXPECT_EQ(ProtocolVersion(CASS_PROTOCOL_VERSION_DSEV1), version);
+
+  EXPECT_TRUE((version = version.previous()).is_valid());
+  EXPECT_EQ(ProtocolVersion(CASS_PROTOCOL_VERSION_V5), version);
 
   EXPECT_TRUE((version = version.previous()).is_valid());
   EXPECT_EQ(ProtocolVersion(CASS_PROTOCOL_VERSION_V4), version);

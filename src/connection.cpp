@@ -115,6 +115,7 @@ Connection::Connection(const Socket::Ptr& socket, const Host::Ptr& host,
     , protocol_version_(protocol_version)
     , idle_timeout_secs_(idle_timeout_secs)
     , heartbeat_interval_secs_(heartbeat_interval_secs)
+    , handshake_complete_(false)
     , heartbeat_outstanding_(false) {
   inc_ref(); // For the event loop
   host_->increment_connection_count();
@@ -232,11 +233,23 @@ void Connection::on_write(int status, RequestCallback* request) {
 void Connection::on_read(const char* buf, size_t size) {
   listener_->on_read();
 
+  if (socket_->is_closing()) {
+    // The read failed (EOF or an error) so Socket::handle_read has already
+    // defuncted the socket; there is nothing left to process. `size` cannot be
+    // trusted here because it is derived from a negative libuv read count.
+    return;
+  }
+
   const char* pos = buf;
   size_t remaining = size;
 
   // A successful read means the connection is still responsive
   restart_terminate_timer();
+
+  if (use_frame_codec()) {
+    on_read_framed(buf, size);
+    return;
+  }
 
   while (remaining != 0 && !socket_->is_closing()) {
     ssize_t consumed = response_->decode(pos, remaining);
@@ -255,54 +268,124 @@ void Connection::on_read(const char* buf, size_t size) {
                 static_cast<unsigned int>(size), static_cast<unsigned int>(remaining),
                 host_->address_string().c_str());
 
-      if (response->stream() < 0) {
-        if (response->opcode() == CQL_OPCODE_EVENT) {
-          listener_->on_event(response->response_body());
-        } else {
-          LOG_ERROR("Invalid response opcode for event stream: %s",
-                    opcode_to_string(response->opcode()).c_str());
-          defunct();
-          continue;
-        }
-      } else {
-        RequestCallback::Ptr callback;
+      // The server frames everything it sends after replying to STARTUP, so
+      // latch the handshake as complete before dispatching. This lets a
+      // READY/AUTHENTICATE handler issue framed requests.
+      if (response->opcode() == CQL_OPCODE_READY ||
+          response->opcode() == CQL_OPCODE_AUTHENTICATE) {
+        handshake_complete_ = true;
+      }
 
-        if (stream_manager_.get(response->stream(), callback)) {
-          switch (callback->state()) {
-            case RequestCallback::REQUEST_STATE_READING:
-              pending_reads_.remove(callback.get());
-              stream_manager_.release(callback->stream());
-              inflight_request_count_.fetch_sub(1);
-              callback->set_state(RequestCallback::REQUEST_STATE_FINISHED);
-              maybe_set_keyspace(response.get());
-              callback->on_set(response.get());
-              break;
-
-            case RequestCallback::REQUEST_STATE_WRITING:
-              // There are cases when the read callback will happen
-              // before the write callback. If this happens we have
-              // to allow the write callback to finish the request.
-              callback->set_state(RequestCallback::REQUEST_STATE_READ_BEFORE_WRITE);
-              // Save the response for the write callback
-              callback->set_read_before_write_response(response.release()); // Transfer ownership
-              break;
-
-            default:
-              LOG_ERROR("Invalid request state %s for stream ID %d", callback->state_string(),
-                        response->stream());
-              defunct();
-              break;
-          }
-        } else {
-          LOG_ERROR("Invalid stream ID %d", response->stream());
-          defunct();
-          continue;
-        }
+      if (!process_response(response)) {
+        break;
       }
     }
     remaining -= consumed;
     pos += consumed;
   }
+}
+
+void Connection::on_read_framed(const char* buf, size_t size) {
+  frame_decoder_.feed(buf, size);
+
+  const char* payload = NULL;
+  size_t payload_size = 0;
+
+  while (!socket_->is_closing()) {
+    FrameDecoder::Result result = frame_decoder_.next(&payload, &payload_size);
+    if (result == FrameDecoder::RESULT_NEED_MORE) {
+      break;
+    }
+    if (result == FrameDecoder::RESULT_ERROR) {
+      LOG_ERROR("Protocol v5 frame error: %s", frame_decoder_.error());
+      defunct();
+      return;
+    }
+
+    const char* pos = payload;
+    size_t remaining = payload_size;
+
+    while (remaining != 0) {
+      ssize_t consumed = response_->decode(pos, remaining);
+      if (consumed <= 0) {
+        LOG_ERROR("Error decoding/consuming message");
+        defunct();
+        return;
+      }
+
+      if (response_->is_body_ready()) {
+        ScopedPtr<ResponseMessage> response(response_.release());
+        response_.reset(new ResponseMessage());
+
+        LOG_TRACE("Consumed message type %s with stream %d from a v5 frame on host %s",
+                  opcode_to_string(response->opcode()).c_str(),
+                  static_cast<int>(response->stream()), host_->address_string().c_str());
+
+        if (response->opcode() == CQL_OPCODE_READY ||
+            response->opcode() == CQL_OPCODE_AUTHENTICATE) {
+          handshake_complete_ = true;
+        }
+
+        if (!process_response(response)) {
+          return;
+        }
+      }
+
+      remaining -= consumed;
+      pos += consumed;
+    }
+  }
+}
+
+bool Connection::process_response(ScopedPtr<ResponseMessage>& holder) {
+  ResponseMessage* response = holder.get();
+  if (response->stream() < 0) {
+    if (response->opcode() == CQL_OPCODE_EVENT) {
+      listener_->on_event(response->response_body());
+    } else {
+      LOG_ERROR("Invalid response opcode for event stream: %s",
+                opcode_to_string(response->opcode()).c_str());
+      defunct();
+      return false;
+    }
+    return true;
+  }
+
+  RequestCallback::Ptr callback;
+
+  if (!stream_manager_.get(response->stream(), callback)) {
+    LOG_ERROR("Invalid stream ID %d", response->stream());
+    defunct();
+    return false;
+  }
+
+  switch (callback->state()) {
+    case RequestCallback::REQUEST_STATE_READING:
+      pending_reads_.remove(callback.get());
+      stream_manager_.release(response->stream());
+      inflight_request_count_.fetch_sub(1);
+      callback->set_state(RequestCallback::REQUEST_STATE_FINISHED);
+      maybe_set_keyspace(response);
+      callback->on_set(response);
+      break;
+
+    case RequestCallback::REQUEST_STATE_WRITING:
+      // There are cases when the read callback will happen
+      // before the write callback. If this happens we have
+      // to allow the write callback to finish the request.
+      callback->set_state(RequestCallback::REQUEST_STATE_READ_BEFORE_WRITE);
+      // Save the response for the write callback
+      callback->set_read_before_write_response(holder.release()); // Transfer ownership
+      break;
+
+    default:
+      LOG_ERROR("Invalid request state %s for stream ID %d", callback->state_string(),
+                response->stream());
+      defunct();
+      break;
+  }
+
+  return true;
 }
 
 void Connection::on_close() {

@@ -45,7 +45,7 @@ ProtocolVersion ProtocolVersion::lowest_supported() {
 }
 
 ProtocolVersion ProtocolVersion::highest_supported(bool is_dse) {
-  return ProtocolVersion(is_dse ? CASS_PROTOCOL_VERSION_DSEV2 : CASS_PROTOCOL_VERSION_V4);
+  return ProtocolVersion(is_dse ? CASS_PROTOCOL_VERSION_DSEV2 : CASS_PROTOCOL_VERSION_V5);
 }
 
 ProtocolVersion ProtocolVersion::newest_beta() { return ProtocolVersion(CASS_PROTOCOL_VERSION_V5); }
@@ -56,9 +56,31 @@ bool ProtocolVersion::is_valid() const {
   return *this >= lowest_supported() && *this <= highest_supported(is_dse());
 }
 
-bool ProtocolVersion::is_beta() const { return *this == newest_beta(); }
-
 bool ProtocolVersion::is_dse() const { return (value_ & DSE_PROTOCOL_VERSION_BIT) != 0; }
+
+// A version is beta only while it is newer than the highest GA version, i.e.
+// while the server may still require the USE_BETA frame flag to accept it.
+// Protocol v5 graduated to GA in Cassandra 4.0, so this is currently always
+// false; the check is kept so that a future beta version is handled correctly.
+bool ProtocolVersion::is_beta() const { return *this > highest_supported(is_dse()); }
+
+bool ProtocolVersion::supports_framing() const {
+  assert(value_ > 0 && "Invalid protocol version");
+  return is_protocol_at_least_v5_or_dse_v2(value_);
+}
+
+size_t ProtocolVersion::query_flags_size() const {
+  // Protocol v5 widened <flags> from [byte] to [int] to make room for
+  // With_now_in_seconds (0x0100).
+  return supports_framing() ? sizeof(int32_t) : sizeof(uint8_t);
+}
+
+bool ProtocolVersion::supports_now_in_seconds() const {
+  assert(value_ > 0 && "Invalid protocol version");
+  // With_now_in_seconds only exists in the Apache Cassandra v5 protocol. DSE v2
+  // shares the v5 framing and metadata changes but not this flag.
+  return !is_dse() && value_ >= CASS_PROTOCOL_VERSION_V5;
+}
 
 String ProtocolVersion::to_string() const {
   if (value_ > 0) {

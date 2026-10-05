@@ -18,10 +18,12 @@
 
 #include "prepare_host_handler.hpp"
 
+#include "error_response.hpp"
 #include "prepare_request.hpp"
 #include "protocol.hpp"
 #include "query_request.hpp"
 #include "stream_manager.hpp"
+#include "utils.hpp"
 
 #include <algorithm>
 
@@ -127,11 +129,14 @@ void PrepareHostHandler::prepare_next() {
 }
 
 bool PrepareHostHandler::check_and_set_keyspace() {
+  const String& keyspace((*current_entry_it_)->keyspace());
+
   if (protocol_version_.supports_set_keyspace()) {
+    // The keyspace travels in the prepare request parameters, so there's no "USE"
+    // query to write. Keep current_keyspace_ in sync so prepare() can attach it.
+    current_keyspace_ = keyspace;
     return true;
   }
-
-  const String& keyspace((*current_entry_it_)->keyspace());
 
   if (keyspace != current_keyspace_) {
     PrepareCallback::Ptr callback(new SetKeyspaceCallback(keyspace, Ptr(this)));
@@ -160,6 +165,28 @@ PrepareHostHandler::PrepareCallback::PrepareCallback(
     , handler_(handler) {}
 
 void PrepareHostHandler::PrepareCallback::on_internal_set(ResponseMessage* response) {
+  if (response->opcode() != CQL_OPCODE_RESULT) {
+    if (response->opcode() == CQL_OPCODE_ERROR) {
+      const ErrorResponse* error = static_cast<const ErrorResponse*>(response->response_body().get());
+      on_internal_error(static_cast<CassError>(CASS_ERROR(CASS_ERROR_SOURCE_SERVER, error->code())),
+                        error->error_message());
+    } else {
+      on_internal_error(CASS_ERROR_LIB_UNEXPECTED_RESPONSE,
+                        "Invalid response opcode for prepare request: " +
+                            opcode_to_string(response->opcode()));
+    }
+    return;
+  }
+
+  const ResultResponse* result = static_cast<const ResultResponse*>(response->response_body().get());
+  if (result->kind() != CASS_RESULT_KIND_PREPARED) {
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(result->kind()));
+    on_internal_error(CASS_ERROR_LIB_UNEXPECTED_RESPONSE,
+                      String("Invalid result kind for prepare request: ") + buffer);
+    return;
+  }
+
   LOG_DEBUG("Successfully prepared query \"%s\" on host %s while preparing all queries",
             static_cast<const PrepareRequest*>(request())->query().c_str(),
             handler_->host()->address_string().c_str());

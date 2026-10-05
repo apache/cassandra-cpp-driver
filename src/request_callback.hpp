@@ -137,6 +137,7 @@ public:
 
   RequestCallback(const RequestWrapper& wrapper)
       : wrapper_(wrapper)
+      , framed_(false)
       , stream_(-1)
       , state_(REQUEST_STATE_NEW)
       , retry_consistency_(CASS_CONSISTENCY_UNKNOWN) {}
@@ -178,6 +179,9 @@ public:
 
   int64_t timestamp() { return wrapper_.timestamp(); }
 
+  /** Protocol v5 only; `CASS_INT32_MIN` means unset. */
+  int32_t now_in_seconds() { return request()->now_in_seconds(); }
+
   const RetryPolicy::Ptr& retry_policy() { return wrapper_.retry_policy(); }
 
   const PreparedMetadata::Entry::Ptr& prepared_metadata_entry() const {
@@ -203,9 +207,18 @@ private:
   virtual int32_t encode(BufferVec* bufs);
   virtual void on_close();
 
+  /**
+   * Whether this request must be wrapped in the protocol v5 frame format.
+   *
+   * This is captured when the write is notified because framing only applies
+   * once the connection's initial handshake has completed.
+   */
+  bool framed() const { return framed_; }
+
 private:
   const RequestWrapper wrapper_;
   ProtocolVersion protocol_version_;
+  bool framed_;
   int stream_;
   State state_;
   CassConsistency retry_consistency_;
