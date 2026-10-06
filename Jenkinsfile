@@ -59,6 +59,18 @@ ENVIRONMENT_EOF
       '''
   }
 
+  if (env.SERVER_VERSION && env.SERVER_VERSION.split('-')[0] == 'hcd') {
+      env.HCD_FIXED_VERSION = env.SERVER_VERSION.split('-')[1]
+      sh label: 'Update environment for Hyper-Converged Database', script: '''#!/bin/bash -le
+        cat >> ${HOME}/environment.txt << ENVIRONMENT_EOF
+CCM_PATH=${HOME}/ccm
+CCM_CASSANDRA_VERSION=${HCD_FIXED_VERSION} # maintain for backwards compatibility
+CCM_VERSION=${HCD_FIXED_VERSION}
+CCM_SERVER_TYPE=hcd
+ENVIRONMENT_EOF
+      '''
+  }
+
   sh label: 'Display C++ version and environment information', script: '''#!/bin/bash -le
     . ${DRIVER_BUILD_SCRIPT}
 
@@ -272,6 +284,8 @@ def describeScheduledAndAdhocTestingStage() {
           serverDisplayName = "DataStax Distribution of ${serverDisplayName}"
         } else if (serverType == 'dse') {
           serverDisplayName = 'DataStax Enterprise'
+        } else if (serverType == 'hcd') {
+          serverDisplayName = 'Hyper-Converged Database'
         }
         serverDisplayNames += "${serverDisplayName} v${serverVersion}.x"
         if (it != serverVersions[-1]) {
@@ -329,10 +343,13 @@ pipeline {
       name: 'ADHOC_BUILD_AND_EXECUTE_TESTS_SERVER_VERSION',
       choices: [
                 '3.0',      // Previous Apache Cassandra
-                '3.11',     // Current Apache Cassandra
-                '4.0',      // Development Apache Cassandra
+                '3.11',     // Previous Apache Cassandra
+                '4.0',      // Previous Apache Cassandra
+                '4.1',      // Previous Apache Cassandra
+                '5.0',      // Current Apache Cassandra
                 'dse-5.1.35',  // Legacy DataStax Enterprise
-                'dse-6.8.30',  // Development DataStax Enterprise
+                'dse-6.9.0',   // Current DataStax Enterprise
+                'hcd-1.0.0',   // Hyper-Converged Database
                 'ALL'],
       description: '''Apache Cassandra&reg; and DataStax Enterprise server version to use for adhoc <b>BUILD-AND-EXECUTE-TESTS</b> builds
                       <table style="width:100%">
@@ -352,7 +369,15 @@ pipeline {
                         </tr>
                         <tr>
                           <td><strong>4.0</strong></td>
-                          <td>Apache Cassandra&reg; v4.x (<b>CURRENTLY UNDER DEVELOPMENT</b>)</td>
+                          <td>Apache Cassandra&reg; v4.0.x</td>
+                        </tr>
+                        <tr>
+                          <td><strong>4.1</strong></td>
+                          <td>Apache Cassandra&reg; v4.1.x</td>
+                        </tr>
+                        <tr>
+                          <td><strong>5.0</strong></td>
+                          <td>Apache Cassandra&reg; v5.0.x</td>
                         </tr>
                         <tr>
                           <td><strong>dse-5.1</strong></td>
@@ -360,7 +385,15 @@ pipeline {
                         </tr>
                         <tr>
                           <td><strong>dse-6.8</strong></td>
-                          <td>DataStax Enterprise v6.8.x (<b>CURRENTLY UNDER DEVELOPMENT</b>)</td>
+                          <td>DataStax Enterprise v6.8.x</td>
+                        </tr>
+                        <tr>
+                          <td><strong>dse-6.9</strong></td>
+                          <td>DataStax Enterprise v6.9.x</td>
+                        </tr>
+                        <tr>
+                          <td><strong>hcd-1.0</strong></td>
+                          <td>Hyper-Converged Database v1.0.x</td>
                         </tr>
                       </table>''')
     choice(
@@ -548,10 +581,13 @@ pipeline {
           axis {
             name 'SERVER_VERSION'
             values '3.0',      // Previous Apache Cassandra
-                   '3.11',     // Current Apache Cassandra
-                   '4.0',      // Development Apache Cassandra
+                   '3.11',     // Previous Apache Cassandra
+                   '4.0',      // Previous Apache Cassandra
+                   '4.1',      // Previous Apache Cassandra
+                   '5.0',      // Current Apache Cassandra
                    'dse-5.1.35',  // Legacy DataStax Enterprise
-                   'dse-6.8.30'   // Development DataStax Enterprise
+                   'dse-6.9.0',   // Current DataStax Enterprise
+                   'hcd-1.0.0'    // Hyper-Converged Database
           }
         }
         when {

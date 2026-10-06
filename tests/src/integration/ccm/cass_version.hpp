@@ -336,8 +336,10 @@ public:
   }
 
   CassVersion get_cass_version() {
-    // Map the DSE version to the appropriate Cassandra version
-    if (*this == "4.5.0" || *this == "4.5.1") {
+    // Map the HCD/DSE version to the appropriate Cassandra version
+    if (*this >= "1.0.0" && *this < "2.0.0") {
+      return CassVersion("4.0.0");
+    } else if (*this == "4.5.0" || *this == "4.5.1") {
       return CassVersion("2.0.8-39");
     } else if (*this == "4.5.2") {
       return CassVersion("2.0.10-71");
