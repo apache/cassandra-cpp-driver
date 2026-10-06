@@ -179,6 +179,7 @@ if(CASS_BUILD_STATIC)
   set_target_properties(cassandra_static PROPERTIES
       COMPILE_PDB_NAME "cassandra_static"
       COMPILE_PDB_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+  set_target_properties(cassandra_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
   set_target_properties(cassandra_static PROPERTIES
       ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
       LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
