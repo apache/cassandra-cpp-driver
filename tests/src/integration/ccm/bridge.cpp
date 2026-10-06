@@ -670,6 +670,15 @@ bool CCM::Bridge::decommission_node(unsigned int node, bool is_force /*= false*/
   return is_node_decommissioned(node);
 }
 
+void CCM::Bridge::drain_node(unsigned int node) {
+  // Create the node drain command and execute
+  std::vector<std::string> drain_node_command;
+  drain_node_command.push_back(generate_node_name(node));
+  drain_node_command.push_back("nodetool");
+  drain_node_command.push_back("drain");
+  execute_ccm_command(drain_node_command);
+}
+
 void CCM::Bridge::disable_node_binary_protocol(unsigned int node) {
   // Create the disable node binary protocol command and execute
   std::vector<std::string> disable_node_binary_protocol_command;

@@ -1360,6 +1360,10 @@ Action::Builder& Action::Builder::auth_success(const String& token) {
 
 Action::Builder& Action::Builder::supported() { return execute(new SendSupported()); }
 
+Action::Builder& Action::Builder::supported(const Map<String, Vector<String> >& options) {
+  return execute(new SendSupported(options));
+}
+
 Action::Builder& Action::Builder::up_event(const Address& address) {
   return execute(new SendUpEvent(address));
 }
@@ -1545,7 +1549,7 @@ void SendAuthSuccess::on_run(Request* request) const {
 
 void SendSupported::on_run(Request* request) const {
   String body;
-  encode_uint16(0, &body);
+  encode_string_map(options, &body);
   request->write(OPCODE_SUPPORTED, body);
 }
 
@@ -1950,6 +1954,10 @@ void ValidateQuery::on_run(Request* request) const {
 
 void SetRegisteredForEvents::on_run(Request* request) const {
   request->client()->set_registered_for_events();
+  EventTypes types;
+  if (request->decode_register(&types)) {
+    request->client()->set_registered_event_types(types);
+  }
   run_next(request);
 }
 
@@ -2089,15 +2097,17 @@ void ProtocolHandler::decode_body(ClientConnection* client, const char* body, in
 
 void ClientConnection::on_read(const char* data, size_t len) { handler_.decode(this, data, len); }
 
-Event::Event(const String& event_body)
-    : event_body_(event_body) {}
+Event::Event(const String& event_type, const String& event_body)
+    : event_type_(event_type)
+    , event_body_(event_body) {}
 
 void Event::run(internal::ServerConnection* server_connection) {
   for (internal::ClientConnections::const_iterator it = server_connection->clients().begin(),
                                                    end = server_connection->clients().end();
        it != end; ++it) {
     ClientConnection* client = static_cast<ClientConnection*>(*it);
-    if (client->is_registered_for_events() && client->protocol_version() > 0) {
+    if (client->is_registered_for_events() && client->protocol_version() > 0 &&
+        client->is_registered_for_event(event_type_)) {
       client->write(
           encode_header(client->protocol_version(), 0, -1, OPCODE_EVENT, event_body_.size()) +
           event_body_);
@@ -2155,6 +2165,16 @@ String StatusChangeEvent::encode(Type type, const Address& address) {
       break;
   };
   encode_inet(address, &body);
+  return body;
+}
+
+Event::Ptr GracefulDisconnectEvent::create() { return Ptr(new GracefulDisconnectEvent()); }
+
+String GracefulDisconnectEvent::encode() {
+  // The GRACEFUL_DISCONNECT event (CEP-59) has no body; the type string is
+  // enough.
+  String body;
+  encode_string("GRACEFUL_DISCONNECT", &body);
   return body;
 }
 

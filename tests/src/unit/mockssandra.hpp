@@ -599,6 +599,7 @@ struct Action {
     Builder& auth_challenge(const String& token);
     Builder& auth_success(const String& token = "");
     Builder& supported();
+    Builder& supported(const Map<String, Vector<String> >& options);
     Builder& up_event(const Address& address);
 
     Builder& void_result();
@@ -791,7 +792,11 @@ struct SendAuthSuccess : public Action {
 };
 
 struct SendSupported : public Action {
+  SendSupported() {}
+  SendSupported(const Map<String, Vector<String> >& options)
+      : options(options) {}
   virtual void on_run(Request* request) const;
+  Map<String, Vector<String> > options;
 };
 
 struct SendUpEvent : public Action {
@@ -1020,6 +1025,20 @@ public:
 
   bool is_registered_for_events() const { return is_registered_for_events_; }
   void set_registered_for_events() { is_registered_for_events_ = true; }
+
+  const EventTypes& registered_event_types() const { return registered_event_types_; }
+  void set_registered_event_types(const EventTypes& event_types) {
+    registered_event_types_ = event_types;
+  }
+  bool is_registered_for_event(const String& event_type) const {
+    for (EventTypes::const_iterator it = registered_event_types_.begin(),
+                                    end = registered_event_types_.end();
+         it != end; ++it) {
+      if (*it == event_type) return true;
+    }
+    return false;
+  }
+
   const Options& options() const { return options_; }
   void set_options(const Options& options) { options_ = options; }
 
@@ -1032,6 +1051,7 @@ private:
   const Cluster* cluster_;
   int protocol_version_;
   bool is_registered_for_events_;
+  EventTypes registered_event_types_;
   Options options_;
 };
 
@@ -1097,11 +1117,12 @@ class Event : public internal::ServerConnectionTask {
 public:
   typedef SharedRefPtr<Event> Ptr;
 
-  Event(const String& event_body);
+  Event(const String& event_type, const String& event_body);
 
   virtual void run(internal::ServerConnection* server_connection);
 
 private:
+  String event_type_;
   String event_body_;
 };
 
@@ -1110,7 +1131,7 @@ public:
   enum Type { NEW_NODE, MOVED_NODE, REMOVED_NODE };
 
   TopologyChangeEvent(Type type, const Address& address)
-      : Event(encode(type, address)) {}
+      : Event("TOPOLOGY_CHANGE", encode(type, address)) {}
 
   static Ptr new_node(const Address& address);
   static Ptr moved_node(const Address& address);
@@ -1124,12 +1145,22 @@ public:
   enum Type { UP, DOWN };
 
   StatusChangeEvent(Type type, const Address& address)
-      : Event(encode(type, address)) {}
+      : Event("STATUS_CHANGE", encode(type, address)) {}
 
   static Ptr up(const Address& address);
   static Ptr down(const Address& address);
 
   static String encode(Type type, const Address& address);
+};
+
+class GracefulDisconnectEvent : public Event {
+public:
+  GracefulDisconnectEvent()
+      : Event("GRACEFUL_DISCONNECT", encode()) {}
+
+  static Ptr create();
+
+  static String encode();
 };
 
 class SchemaChangeEvent : public Event {
@@ -1141,7 +1172,7 @@ public:
   SchemaChangeEvent(Target target, Type type, const String& keyspace_name,
                     const String& target_name = "",
                     const Vector<String>& args_types = Vector<String>())
-      : Event(encode(target, type, keyspace_name, target_name, args_types)) {}
+      : Event("SCHEMA_CHANGE", encode(target, type, keyspace_name, target_name, args_types)) {}
 
   static Ptr keyspace(Type type, const String& keyspace_name);
   static Ptr table(Type type, const String& keyspace_name, const String& table_name);
@@ -1242,8 +1273,9 @@ public:
 class SimpleCluster : public Cluster {
 public:
   SimpleCluster(const RequestHandler* request_handler, size_t num_nodes_dc1 = 1,
-                size_t num_nodes_dc2 = 0)
-      : factory_(request_handler, this)
+                size_t num_nodes_dc2 = 0, int port = 9042)
+      : generator_(127, 0, 0, 1, port)
+      , factory_(request_handler, this)
       , event_loop_group_(1) {
     init(generator_, factory_, num_nodes_dc1, num_nodes_dc2);
   }

@@ -115,6 +115,7 @@ Connection::Connection(const Socket::Ptr& socket, const Host::Ptr& host,
     , protocol_version_(protocol_version)
     , idle_timeout_secs_(idle_timeout_secs)
     , heartbeat_interval_secs_(heartbeat_interval_secs)
+    , is_draining_(false)
     , heartbeat_outstanding_(false) {
   inc_ref(); // For the event loop
   host_->increment_connection_count();
@@ -123,6 +124,12 @@ Connection::Connection(const Socket::Ptr& socket, const Host::Ptr& host,
 Connection::~Connection() { host_->decrement_connection_count(); }
 
 int32_t Connection::write(const RequestCallback::Ptr& callback) {
+  if (is_draining_) {
+    // The connection is draining (CEP-59); new requests must go to another
+    // connection or host.
+    return Request::REQUEST_ERROR_CONNECTION_DRAINING;
+  }
+
   int stream = stream_manager_.acquire(callback);
   if (stream < 0) {
     return Request::REQUEST_ERROR_NO_AVAILABLE_STREAM_IDS;
@@ -185,6 +192,27 @@ void Connection::maybe_set_keyspace(ResponseMessage* response) {
   }
 }
 
+void Connection::start_graceful_drain() {
+  if (is_draining_ || is_closing()) {
+    return;
+  }
+  is_draining_ = true;
+  LOG_INFO("Draining connection to host %s gracefully; %d request(s) in flight",
+           host_->address_string().c_str(), inflight_request_count());
+  maybe_finish_graceful_drain();
+}
+
+void Connection::maybe_finish_graceful_drain() {
+  if (!is_draining_ || is_closing()) {
+    return;
+  }
+  if (inflight_request_count() == 0) {
+    LOG_DEBUG("Graceful drain of connection to host %s complete, closing",
+              host_->address_string().c_str());
+    close();
+  }
+}
+
 void Connection::on_write(int status, RequestCallback* request) {
   listener_->on_write();
 
@@ -227,6 +255,8 @@ void Connection::on_write(int status, RequestCallback* request) {
       defunct();
       break;
   }
+
+  maybe_finish_graceful_drain();
 }
 
 void Connection::on_read(const char* buf, size_t size) {
@@ -257,7 +287,13 @@ void Connection::on_read(const char* buf, size_t size) {
 
       if (response->stream() < 0) {
         if (response->opcode() == CQL_OPCODE_EVENT) {
-          listener_->on_event(response->response_body());
+          EventResponse::Ptr event(response->response_body());
+          if (event && event->event_type() == CASS_EVENT_GRACEFUL_DISCONNECT) {
+            // Start draining this connection first, so that the drain is not
+            // compromised if the listener below misbehaves (CEP-59).
+            start_graceful_drain();
+          }
+          listener_->on_event(event);
         } else {
           LOG_ERROR("Invalid response opcode for event stream: %s",
                     opcode_to_string(response->opcode()).c_str());
@@ -276,6 +312,7 @@ void Connection::on_read(const char* buf, size_t size) {
               callback->set_state(RequestCallback::REQUEST_STATE_FINISHED);
               maybe_set_keyspace(response.get());
               callback->on_set(response.get());
+              maybe_finish_graceful_drain();
               break;
 
             case RequestCallback::REQUEST_STATE_WRITING:
@@ -323,6 +360,12 @@ void Connection::restart_heartbeat_timer() {
 }
 
 void Connection::on_heartbeat(Timer* timer) {
+  if (is_draining_) {
+    // A graceful drain (CEP-59) is in progress: do not send a heartbeat, the
+    // connection will close once its in-flight requests have completed.
+    restart_heartbeat_timer();
+    return;
+  }
   if (!heartbeat_outstanding_ && !socket_->is_closing()) {
     RequestCallback::Ptr callback(new HeartbeatCallback(this));
     if (write_and_flush(callback) < 0) {

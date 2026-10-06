@@ -64,6 +64,7 @@ class ChainedControlRequestCallback;
 class ControlRequestCallback;
 class ControlConnection;
 class EventResponse;
+class Metrics;
 class RefreshNodeCallback;
 class RefreshKeyspaceCallback;
 class RefreshTableCallback;
@@ -185,6 +186,12 @@ struct ControlConnectionSettings {
   bool use_token_aware_routing;
 
   /**
+   * If true then the control connection will register for GRACEFUL_DISCONNECT
+   * events (CEP-59), if the server advertises support for them.
+   */
+  bool graceful_disconnect;
+
+  /**
    * A factory for creating addresses (for the connection process).
    */
   AddressFactory::Ptr address_factory;
@@ -213,10 +220,12 @@ public:
    * @param server_version The version number of the server implementation.
    * @param dse_server_version The version number of the DSE server implementation.
    * @param listen_addresses The current state of the listen addresses map.
+   * @param metrics An object for recording metrics (optional).
    */
   ControlConnection(const Connection::Ptr& connection, ControlConnectionListener* listener,
                     const ControlConnectionSettings& settings, const VersionNumber& server_version,
-                    const VersionNumber& dse_server_version, ListenAddressMap listen_addresses);
+                    const VersionNumber& dse_server_version, ListenAddressMap listen_addresses,
+                    Metrics* metrics = NULL);
 
   /**
    * Write a request and flush immediately.
@@ -301,6 +310,7 @@ private:
   VersionNumber dse_server_version_;
   ListenAddressMap listen_addresses_;
   ControlConnectionListener* listener_;
+  Metrics* metrics_;
 };
 
 }}} // namespace datastax::internal::core

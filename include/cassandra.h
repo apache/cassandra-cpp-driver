@@ -436,6 +436,10 @@ typedef struct CassMetrics_ {
     cass_uint64_t pending_request_timeouts; /**< Deprecated */
     cass_uint64_t request_timeouts; /**< Occurrences of requests that timed out waiting for a request to finish */
   } errors; /**< Error metrics */
+
+  struct {
+    cass_uint64_t graceful_disconnects; /**< Occurrences of a GRACEFUL_DISCONNECT event (CEP-59) received from a node shutting down gracefully */
+  } events; /**< Event metrics */
 } CassMetrics;
 
 typedef struct CassSpeculativeExecutionMetrics_ {
@@ -2766,6 +2770,27 @@ cass_cluster_set_prepare_on_up_or_add_host(CassCluster* cluster,
 CASS_EXPORT CassError
 cass_cluster_set_no_compact(CassCluster* cluster,
                             cass_bool_t enabled);
+
+/**
+ * Enable or disable registering for <b>GRACEFUL_DISCONNECT</b> events
+ * (CEP-59).
+ *
+ * When enabled and the server advertises support, the driver drains
+ * in-flight requests before closing connections when a node shuts down
+ * gracefully, and new requests fail over to other nodes. The capability is
+ * negotiated per connection; on servers that do not advertise support this
+ * setting has no effect.
+ *
+ * <b>Default:</b> cass_true
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] enabled
+ */
+CASS_EXPORT CassError
+cass_cluster_set_graceful_disconnect(CassCluster* cluster,
+                                     cass_bool_t enabled);
 
 /**
  * Sets a callback for handling host state changes in the cluster.

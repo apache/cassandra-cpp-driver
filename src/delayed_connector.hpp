@@ -69,6 +69,14 @@ public:
   DelayedConnector* with_metrics(Metrics* metrics);
 
   /**
+   * Same as Connector::with_event_types()
+   *
+   * @param event_types A bit set of event types to register.
+   * @return The connector to chain calls.
+   */
+  DelayedConnector* with_event_types(int event_types);
+
+  /**
    * Same as Connector::with_settings()
    *
    * @param settings

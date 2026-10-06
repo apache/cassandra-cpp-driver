@@ -186,6 +186,21 @@ public:
   bool is_defunct() const { return socket_->is_defunct(); }
 
   /**
+   * Determine if the connection is draining as a result of a
+   * GRACEFUL_DISCONNECT event (CEP-59).
+   *
+   * @return Returns true if draining.
+   */
+  bool is_draining() const { return is_draining_; }
+
+  /**
+   * Start a graceful drain of the connection (CEP-59): new requests are
+   * refused, in-flight requests are allowed to complete, and the connection
+   * is closed once the last in-flight request has completed.
+   */
+  void start_graceful_drain();
+
+  /**
    * Mark as defunct and close the connection.
    */
   void defunct();
@@ -217,6 +232,7 @@ public:
 
 private:
   void maybe_set_keyspace(ResponseMessage* response);
+  void maybe_finish_graceful_drain();
 
   void on_write(int status, RequestCallback* request);
   void on_read(const char* buf, size_t size);
@@ -245,6 +261,7 @@ private:
 
   unsigned int idle_timeout_secs_;
   unsigned int heartbeat_interval_secs_;
+  bool is_draining_;
   bool heartbeat_outstanding_;
   Timer heartbeat_timer_;
   Timer terminate_timer_;
