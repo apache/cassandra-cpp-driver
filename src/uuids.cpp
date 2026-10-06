@@ -46,6 +46,18 @@ static uint64_t set_version(uint64_t timestamp, uint8_t version) {
   return (timestamp & 0x0FFFFFFFFFFFFFFFLL) | (static_cast<uint64_t>(version) << 60);
 }
 
+bool operator<(const CassUuid& uuid1, const CassUuid& uuid2) {
+  if (uuid1.time_and_version == uuid2.time_and_version)
+    return uuid1.clock_seq_and_node < uuid2.clock_seq_and_node;
+  else
+    return uuid1.time_and_version < uuid2.time_and_version;
+}
+
+bool operator==(const CassUuid& uuid1, const CassUuid& uuid2) {
+  return uuid1.time_and_version == uuid2.time_and_version
+    && uuid1.clock_seq_and_node == uuid2.clock_seq_and_node;
+}
+
 extern "C" {
 
 CassUuidGen* cass_uuid_gen_new() { return CassUuidGen::to(new UuidGen()); }
