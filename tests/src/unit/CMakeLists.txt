@@ -21,6 +21,12 @@ source_group("Header Files" FILES ${UNIT_TESTS_INCLUDE_FILES})
 source_group("Source Files" FILES ${UNIT_TESTS_SOURCE_FILES})
 source_group("Source Files\\tests" FILES ${UNIT_TESTS_TESTS_SOURCE_FILES})
 
+if(CASS_USE_OPENSSL AND WIN32 AND (NOT CASS_OPENSSL_APPLINK STREQUAL ""))
+  # Allow user to specify the location of applink.c.  Some Windows builds require this as an
+  # interface into OpenSSL BIO ops.  See https://docs.openssl.org/1.1.1/man3/OPENSSL_Applink/
+  list(APPEND UNIT_TESTS_SOURCE_FILES "${CASS_OPENSSL_APPLINK}")
+endif()
+
 add_executable(cassandra-unit-tests
   ${MINIZIP_SOURCE_FILES}
   ${UNIT_TESTS_SOURCE_FILES}

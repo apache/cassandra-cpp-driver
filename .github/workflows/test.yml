@@ -1,0 +1,48 @@
+on: [push]
+name: Test
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-2019, windows-2022]
+    runs-on: ${{ matrix.os }}
+    name: Build and test driver on ${{ matrix.os }}
+    env:
+      CASS_DRIVER_LIBEV_INCLUDES: C:/vcpkg/packages/libev_x64-windows/include/libev
+      CASS_DRIVER_LIBEV_LIBS: C:/vcpkg/packages/libev_x64-windows/lib
+      LIBUV_ROOT_DIR: C:/vcpkg/packages/libuv_x64-windows
+      ZLIB_ROOT_DIR: C:/vcpkg/packages/zlib_x64-windows-static
+      KERBEROS_ROOT_DIR: C:/vcpkg/packages/krb5_x64-windows
+      OPENSSL_ROOT_DIR: C:/vcpkg/packages/openssl_x64-windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Install dependencies
+        run: vcpkg install libuv zlib:x64-windows-static krb5 openssl
+      - name: Setup env vars
+        run: |
+          echo "ZLIB_LIB_DIR=${{ env.ZLIB_ROOT_DIR }}/lib" >> $env:GITHUB_ENV
+          echo "LIBUV_BIN_DIR=${{ env.LIBUV_ROOT_DIR }}/bin" >> $env:GITHUB_ENV
+          echo "KERBEROS_BIN_DIR=${{ env.KERBEROS_ROOT_DIR }}/bin" >> $env:GITHUB_ENV
+          echo "OPENSSL_BIN_DIR=${{ env.OPENSSL_ROOT_DIR }}/bin" >> $env:GITHUB_ENV
+          echo "OPENSSL_APPLINK_DIR=${{ env.OPENSSL_ROOT_DIR }}/include/openssl" >> $env:GITHUB_ENV
+      - name: Set PATH to find vcpkg dependencies
+        run: |
+          echo "PATH=${{ env.PATH }};${{ env.LIBUV_BIN_DIR }};${{ env.KERBEROS_BIN_DIR }};${{ env.OPENSSL_BIN_DIR }}" >> $env:GITHUB_ENV
+      - name: Fix name of static zlib dir
+        run: ln -s ${{ env.ZLIB_LIB_DIR }}/zlib.lib ${{ env.ZLIB_LIB_DIR }}/zlibstatic.lib
+      - name: Build and run tests
+        run: |
+          mkdir build
+          cd build
+          cmake -G "NMake Makefiles" -DCASS_BUILD_UNIT_TESTS=On -DCASS_OPENSSL_APPLINK=${{ env.OPENSSL_APPLINK_DIR }}/applink.c ..
+          nmake
+          ls .
+          ldd ./cassandra-unit-tests.exe
+          ./cassandra-unit-tests.exe --gtest_output=xml:gtest-results.xml
+          ls .
+      - name: Publish test results
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: build\gtest-results.xml
