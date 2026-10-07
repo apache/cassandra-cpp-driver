@@ -34,8 +34,8 @@ void on_timeout_set_future(uv_timer_t* handle) {
 }
 
 void on_future_callback(CassFuture* future, void* data) {
-  bool* is_future_callback_called = static_cast<bool*>(data);
-  *is_future_callback_called = true;
+  bool* is_callback_called = static_cast<bool*>(data);
+  *is_callback_called = true;
 }
 
 void start_timer(void* arg) {
@@ -98,13 +98,13 @@ TEST(FutureUnitTest, Error) {
 }
 
 TEST(FutureUnitTest, Callback) {
-  bool is_future_callback_called = false;
+  bool is_callback_called = false;
   Future future(Future::FUTURE_TYPE_GENERIC);
-  ASSERT_TRUE(future.set_callback(&on_future_callback, &is_future_callback_called));
+  ASSERT_TRUE(future.set_callback(&on_future_callback, &is_callback_called));
 
-  ASSERT_FALSE(is_future_callback_called);
+  ASSERT_FALSE(is_callback_called);
   future.set();
-  ASSERT_TRUE(is_future_callback_called);
+  ASSERT_TRUE(is_callback_called);
   ASSERT_TRUE(future.ready());
 }
 
@@ -115,14 +115,57 @@ TEST(FutureUnitTest, CallbackAlreadyAssigned) {
 }
 
 TEST(FutureUnitTest, CallbackAfterFutureIsSet) {
-  bool is_future_callback_called = false;
+  bool is_callback_called = false;
   Future future(Future::FUTURE_TYPE_GENERIC);
 
-  ASSERT_FALSE(is_future_callback_called);
+  ASSERT_FALSE(is_callback_called);
   future.set();
   ASSERT_TRUE(future.ready());
-  ASSERT_FALSE(is_future_callback_called);
+  ASSERT_FALSE(is_callback_called);
 
-  ASSERT_TRUE(future.set_callback(&on_future_callback, &is_future_callback_called));
-  ASSERT_TRUE(is_future_callback_called);
+  ASSERT_TRUE(future.set_callback(&on_future_callback, &is_callback_called));
+  ASSERT_TRUE(is_callback_called);
+}
+
+void callback_get_ready(CassFuture* future, void* data) {
+  bool* callback_flag = static_cast<bool*>(data);
+  *callback_flag = !future->ready();
+}
+
+TEST(FutureUnitTest, CallbacksRunBeforeFutureIsSet) {
+  bool callback_flag = false;
+  Future future(Future::FUTURE_TYPE_GENERIC);
+  ASSERT_TRUE(future.set_callback(&callback_get_ready, &callback_flag));
+
+  /* Confirm that ready() state in the callback is false before we do anything */
+  ASSERT_FALSE(callback_flag);
+  future.set();
+
+  /* Confirm that (a) we're getting the expected true value from ready() here and
+     (b) that callback_flag has moved from false to true.  This transition indicates
+     both that the callback ran and that ready() returned false when it did run. */
+  ASSERT_TRUE(future.ready());
+  ASSERT_TRUE(callback_flag);
+}
+
+void callback_with_wait(CassFuture* future, void* data) {
+  bool* callback_flag = static_cast<bool*>(data);
+  future->wait();
+  *callback_flag = true;
+}
+
+TEST(FutureUnitTest, WaitInCallbacksDoesNotIntroduceDeadlock) {
+  bool callback_flag = false;
+  Future future(Future::FUTURE_TYPE_GENERIC);
+  ASSERT_TRUE(future.set_callback(&callback_with_wait, &callback_flag));
+
+  /* Confirm that ready() state in the callback is false before we do anything */
+  ASSERT_FALSE(callback_flag);
+  future.set();
+
+  /* Confirm that (a) we're getting the expected true value from ready() here and
+     (b) that callback_flag has moved from false to true.  This transition indicates
+     both that the callback ran (which is enough to show that deadlock didn't occur). */
+  ASSERT_TRUE(future.ready());
+  ASSERT_TRUE(callback_flag);
 }

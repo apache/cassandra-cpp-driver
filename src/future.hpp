@@ -108,12 +108,24 @@ protected:
   bool is_set() const { return is_set_; }
 
   void internal_wait(ScopedMutex& lock) {
+    /* CASSCPP-6 If we're being called by the thread setting the future just return immediately */
+    uv_thread_t me = uv_thread_self();
+    const uv_thread_t caller = set_caller_;
+    if (set_caller_ && uv_thread_equal(&caller, &me)) {
+      return;
+    }
     while (!is_set_) {
       uv_cond_wait(&cond_, lock.get());
     }
   }
 
   bool internal_wait_for(ScopedMutex& lock, uint64_t timeout_us) {
+    /* CASSCPP-6 If we're being called by the thread setting the future just return immediately */
+    uv_thread_t me = uv_thread_self();
+    const uv_thread_t caller = set_caller_;
+    if (set_caller_ && uv_thread_equal(&caller, &me)) {
+      return true;
+    }
     if (!is_set_) {
       if (uv_cond_timedwait(&cond_, lock.get(), timeout_us * 1000) != 0) { // Expects nanos
         return false;
@@ -138,6 +150,7 @@ private:
   ScopedPtr<Error> error_;
   Callback callback_;
   void* data_;
+  uv_thread_t set_caller_;
 
 private:
   DISALLOW_COPY_AND_ASSIGN(Future);
