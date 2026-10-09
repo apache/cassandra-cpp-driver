@@ -1443,7 +1443,6 @@ CCM::Bridge::generate_create_updateconf_command(CassVersion cassandra_version) {
   updateconf_command.push_back("updateconf");
   // Disable optimizations (limits) when using DSE/DDAC
   if (is_cassandra()) {
-    updateconf_command.push_back("--rt=10000");
     updateconf_command.push_back("read_request_timeout_in_ms:10000");
     updateconf_command.push_back("write_request_timeout_in_ms:10000");
     updateconf_command.push_back("request_timeout_in_ms:10000");
@@ -1488,17 +1487,56 @@ CCM::Bridge::generate_create_updateconf_command(CassVersion cassandra_version) {
     updateconf_command.push_back("enable_user_defined_functions:true");
   }
 
-  // Create Cassandra version specific updated (C* 3.0+)
-  if (cassandra_version >= "3.0.0") {
-    updateconf_command.push_back("enable_scripted_user_defined_functions:true");
-  }
-
   if (cassandra_version >= "4.0.0" && !is_dse()) {
     updateconf_command.push_back("enable_materialized_views:true");
     updateconf_command.push_back("enable_user_defined_functions:true");
   }
 
+  for (size_t i = 0; i < updateconf_command.size(); ++i) {
+    updateconf_command[i] = translate_config_for_version(updateconf_command[i], cassandra_version);
+  }
+
   return updateconf_command;
+}
+
+std::string CCM::Bridge::translate_config_for_version(const std::string& key_value,
+                                                       CassVersion cassandra_version) {
+  if (cassandra_version < "4.1.0") {
+    return key_value;
+  }
+
+  std::size_t separator = key_value.find(':');
+  if (separator == std::string::npos) {
+    return key_value;
+  }
+
+  std::string key = key_value.substr(0, separator);
+  std::string value = key_value.substr(separator + 1);
+
+  if (key.find('.') != std::string::npos) {
+    return key_value;
+  }
+
+  static const char* SUFFIXES[][2] = {
+    { "_in_ms", "ms" },
+    { "_in_mb", "MiB" },
+    { "_mb_per_sec", "MiB/s" }
+  };
+
+  for (const auto& i : SUFFIXES) {
+    std::string suffix = i[0];
+    if (key.size() >= suffix.size() &&
+        key.compare(key.size() - suffix.size(), suffix.size(), suffix) == 0) {
+      return key.substr(0, key.size() - suffix.size()) + ":" + value + i[1];
+    }
+  }
+
+  std::string enable_prefix = "enable_";
+  if (key.compare(0, enable_prefix.size(), enable_prefix) == 0) {
+    return key.substr(enable_prefix.size()) + "_enabled:" + value;
+  }
+
+  return key_value;
 }
 
 std::string CCM::Bridge::generate_dse_workloads(std::vector<DseWorkload> workloads) {

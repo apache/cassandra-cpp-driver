@@ -329,8 +329,10 @@ pipeline {
       name: 'ADHOC_BUILD_AND_EXECUTE_TESTS_SERVER_VERSION',
       choices: [
                 '3.0',      // Previous Apache Cassandra
-                '3.11',     // Current Apache Cassandra
-                '4.0',      // Development Apache Cassandra
+                '3.11',     // Previous Apache Cassandra
+                '4.0',      // Previous Apache Cassandra
+                '4.1',      // Previous Apache Cassandra
+                '5.0',      // Current Apache Cassandra
                 'dse-5.1.35',  // Legacy DataStax Enterprise
                 'dse-6.8.30',  // Development DataStax Enterprise
                 'ALL'],
@@ -352,7 +354,15 @@ pipeline {
                         </tr>
                         <tr>
                           <td><strong>4.0</strong></td>
-                          <td>Apache Cassandra&reg; v4.x (<b>CURRENTLY UNDER DEVELOPMENT</b>)</td>
+                          <td>Apache Cassandra&reg; v4.0.x</td>
+                        </tr>
+                        <tr>
+                          <td><strong>4.1</strong></td>
+                          <td>Apache Cassandra&reg; v4.1.x</td>
+                        </tr>
+                        <tr>
+                          <td><strong>5.0</strong></td>
+                          <td>Apache Cassandra&reg; v5.0.x</td>
                         </tr>
                         <tr>
                           <td><strong>dse-5.1</strong></td>
@@ -360,7 +370,7 @@ pipeline {
                         </tr>
                         <tr>
                           <td><strong>dse-6.8</strong></td>
-                          <td>DataStax Enterprise v6.8.x (<b>CURRENTLY UNDER DEVELOPMENT</b>)</td>
+                          <td>DataStax Enterprise v6.8.x</td>
                         </tr>
                       </table>''')
     choice(
@@ -548,8 +558,10 @@ pipeline {
           axis {
             name 'SERVER_VERSION'
             values '3.0',      // Previous Apache Cassandra
-                   '3.11',     // Current Apache Cassandra
-                   '4.0',      // Development Apache Cassandra
+                   '3.11',     // Previous Apache Cassandra
+                   '4.0',      // Previous Apache Cassandra
+                   '4.1',      // Previous Apache Cassandra
+                   '5.0',      // Current Apache Cassandra
                    'dse-5.1.35',  // Legacy DataStax Enterprise
                    'dse-6.8.30'   // Development DataStax Enterprise
           }

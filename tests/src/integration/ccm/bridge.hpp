@@ -948,6 +948,22 @@ private:
   std::vector<std::string> generate_create_updateconf_command(CassVersion cassandra_version);
 
   /**
+   * Translate a cassandra.yaml "key:value" update pair to the format Cassandra 4.1
+   * introduced (ignoring nested keys)
+   *
+   * Transformations include:
+   * - "_in_*"/"_*_per_sec" suffix -> appending "*[/s]" to the value
+   * - "enable_" prefix -> "_enabled" suffix
+   *
+   * @param key_value Original "key:value" pair
+   * @param cassandra_version Cassandra version being used
+   * @return The pair translated if renamed and cassandra_version >= 4.1.0;
+   *         otherwise key_value unchanged
+   */
+  std::string translate_config_for_version(const std::string& key_value,
+                                           CassVersion cassandra_version);
+
+  /**
    * Generate the command separated list for have a single or multiple
    * workloads for the CCM setworkload command
    *

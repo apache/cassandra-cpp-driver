@@ -155,8 +155,13 @@ CASSANDRA_INTEGRATION_TEST_F(SchemaMetadataTest, VirtualMetadata) {
   ASSERT_TRUE(table_meta);
   EXPECT_TRUE(table_meta.is_virtual());
 
+  // Cassandra 4.1 added a `sstables` column and changed `task_id`'s type;
+  // later 5.0.x patches add more columns to this table, so for future compatibility,
+  // column count is a floor, not an exact match, from 4.1 onward
+  bool is_4_1_or_later = server_version_ >= "4.1.0";
+
   // Verify virtual table's metadata
-  EXPECT_EQ(cass_table_meta_column_count(table_meta.get()), 8u);
+  EXPECT_GE(cass_table_meta_column_count(table_meta.get()), is_4_1_or_later ? 9u : 8u);
   EXPECT_EQ(cass_table_meta_index_count(table_meta.get()), 0u);
   EXPECT_EQ(cass_table_meta_materialized_view_count(table_meta.get()), 0u);
 
@@ -178,7 +183,8 @@ CASSANDRA_INTEGRATION_TEST_F(SchemaMetadataTest, VirtualMetadata) {
 
   column_meta = cass_table_meta_column_by_name(table_meta.get(), "task_id");
   ASSERT_TRUE(column_meta);
-  EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)), CASS_VALUE_TYPE_UUID);
+  EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)),
+            is_4_1_or_later ? CASS_VALUE_TYPE_TIMEUUID : CASS_VALUE_TYPE_UUID);
 
   column_meta = cass_table_meta_column_by_name(table_meta.get(), "kind");
   ASSERT_TRUE(column_meta);
@@ -195,4 +201,10 @@ CASSANDRA_INTEGRATION_TEST_F(SchemaMetadataTest, VirtualMetadata) {
   column_meta = cass_table_meta_column_by_name(table_meta.get(), "unit");
   ASSERT_TRUE(column_meta);
   EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)), CASS_VALUE_TYPE_TEXT);
+
+  if (is_4_1_or_later) {
+    column_meta = cass_table_meta_column_by_name(table_meta.get(), "sstables");
+    ASSERT_TRUE(column_meta);
+    EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)), CASS_VALUE_TYPE_INT);
+  }
 }
