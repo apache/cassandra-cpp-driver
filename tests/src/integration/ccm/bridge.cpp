@@ -1443,7 +1443,6 @@ CCM::Bridge::generate_create_updateconf_command(CassVersion cassandra_version) {
   updateconf_command.push_back("updateconf");
   // Disable optimizations (limits) when using DSE/DDAC
   if (is_cassandra()) {
-    updateconf_command.push_back("--rt=10000");
     updateconf_command.push_back("read_request_timeout_in_ms:10000");
     updateconf_command.push_back("write_request_timeout_in_ms:10000");
     updateconf_command.push_back("request_timeout_in_ms:10000");
