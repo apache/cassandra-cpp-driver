@@ -2793,7 +2793,7 @@ cass_cluster_set_host_listener_callback(CassCluster* cluster,
  *
  * @param[in] cluster
  * @param[in] path Absolute path to DBaaS credentials file.
- * @return CASS_OK if successful, otherwise error occured.
+ * @return CASS_OK if successful, otherwise error occurred.
  */
 CASS_EXPORT CassError
 cass_cluster_set_cloud_secure_connection_bundle(CassCluster* cluster,
