@@ -1,6 +1,7 @@
 #! /usr/bin/dh-exec
 
 usr/include/*.h
+usr/include/*.hpp
 usr/lib/*.a usr/lib/${DEB_HOST_MULTIARCH}
 debian/cassandra.pc usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig
 debian/cassandra_static.pc usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig

@@ -256,7 +256,7 @@ endif()
 
 # Determine if the header should be installed
 if(CASS_INSTALL_HEADER)
-  file(GLOB CASS_API_HEADER_FILES ${CASS_INCLUDE_DIR}/*.h)
+  file(GLOB CASS_API_HEADER_FILES ${CASS_INCLUDE_DIR}/*.h ${CASS_INCLUDE_DIR}/*.hpp)
   install(FILES ${CASS_API_HEADER_FILES} DESTINATION ${INSTALL_HEADER_DIR})
 endif()
 
