@@ -40,6 +40,11 @@ DelayedConnector* DelayedConnector::with_metrics(Metrics* metrics) {
   return this;
 }
 
+DelayedConnector* DelayedConnector::with_event_types(int event_types) {
+  connector_->with_event_types(event_types);
+  return this;
+}
+
 DelayedConnector* DelayedConnector::with_settings(const ConnectionSettings& settings) {
   connector_->with_settings(settings);
   return this;

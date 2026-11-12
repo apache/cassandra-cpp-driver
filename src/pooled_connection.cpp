@@ -141,11 +141,24 @@ void PooledConnection::flush() {
 
 void PooledConnection::close() { connection_->close(); }
 
+void PooledConnection::start_graceful_drain() { connection_->start_graceful_drain(); }
+
 int PooledConnection::inflight_request_count() const {
   return connection_->inflight_request_count();
 }
 
-bool PooledConnection::is_closing() const { return connection_->is_closing(); }
+bool PooledConnection::is_closing() const {
+  // A draining connection (CEP-59) does not accept new requests.
+  return connection_->is_closing() || connection_->is_draining();
+}
+
+void PooledConnection::on_event(const EventResponse::Ptr& response) {
+  if (response && response->event_type() == CASS_EVENT_GRACEFUL_DISCONNECT) {
+    // The wrapped connection has already started draining itself; notify the
+    // pool so that all connections to this host are drained (CEP-59).
+    pool_->on_graceful_disconnect(ConnectionPool::Protected());
+  }
+}
 
 void PooledConnection::on_read() {
   if (event_loop_) {

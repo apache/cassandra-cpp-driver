@@ -105,6 +105,11 @@ void ControlConnector::connect(uv_loop_t* loop) {
   } else {
     event_types = CASS_EVENT_TOPOLOGY_CHANGE | CASS_EVENT_STATUS_CHANGE;
   }
+  if (settings_.graceful_disconnect) {
+    // The event type is removed during the handshake if this connection's
+    // SUPPORTED response does not advertise the capability (CEP-59).
+    event_types |= CASS_EVENT_GRACEFUL_DISCONNECT;
+  }
   connector_->with_metrics(metrics_)
       ->with_settings(settings_.connection_settings)
       ->with_event_types(event_types)
@@ -145,8 +150,9 @@ void ControlConnector::on_success() {
   }
 
   // Transfer ownership of the connection to the control connection.
-  control_connection_.reset(new ControlConnection(
-      connection_, listener_, settings_, server_version_, dse_server_version_, listen_addresses_));
+  control_connection_.reset(new ControlConnection(connection_, listener_, settings_,
+                                                  server_version_, dse_server_version_,
+                                                  listen_addresses_, metrics_));
 
   control_connection_->set_listener(listener_);
 

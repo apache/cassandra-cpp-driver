@@ -41,12 +41,14 @@ static inline bool least_busy_comp(const PooledConnection::Ptr& a, const PooledC
 
 ConnectionPoolSettings::ConnectionPoolSettings()
     : num_connections_per_host(CASS_DEFAULT_NUM_CONNECTIONS_PER_HOST)
-    , reconnection_policy(new ExponentialReconnectionPolicy()) {}
+    , reconnection_policy(new ExponentialReconnectionPolicy())
+    , graceful_disconnect(CASS_DEFAULT_GRACEFUL_DISCONNECT_ENABLED) {}
 
 ConnectionPoolSettings::ConnectionPoolSettings(const Config& config)
     : connection_settings(config)
     , num_connections_per_host(config.core_connections_per_host())
-    , reconnection_policy(config.reconnection_policy()) {}
+    , reconnection_policy(config.reconnection_policy())
+    , graceful_disconnect(config.graceful_disconnect()) {}
 
 class NopConnectionPoolListener : public ConnectionPoolListener {
 public:
@@ -140,6 +142,21 @@ void ConnectionPool::requires_flush(PooledConnection* connection, ConnectionPool
   to_flush_.insert(connection);
 }
 
+void ConnectionPool::on_graceful_disconnect(Protected) {
+  if (metrics_) {
+    metrics_->graceful_disconnects.inc();
+  }
+  LOG_INFO("Received GRACEFUL_DISCONNECT for host %s, draining all connections to this host "
+           "gracefully",
+           host_->address_string().c_str());
+  // The graceful drain allows in-flight requests to complete before the
+  // connections are closed.
+  for (PooledConnection::Vec::iterator it = connections_.begin(), end = connections_.end();
+       it != end; ++it) {
+    (*it)->start_graceful_drain();
+  }
+}
+
 void ConnectionPool::close_connection(PooledConnection* connection, Protected) {
   if (metrics_) {
     metrics_->total_connections.dec();
@@ -203,6 +220,7 @@ void ConnectionPool::schedule_reconnect(ReconnectionSchedule* schedule) {
   connector->with_keyspace(keyspace())
       ->with_metrics(metrics_)
       ->with_settings(settings_.connection_settings)
+      ->with_event_types(settings_.graceful_disconnect ? CASS_EVENT_GRACEFUL_DISCONNECT : 0)
       ->delayed_connect(loop_, delay_ms);
 }
 

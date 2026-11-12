@@ -55,6 +55,10 @@ bool EventResponse::decode(Decoder& decoder) {
       return false;
     }
     CHECK_RESULT(decoder.decode_inet(&affected_node_));
+  } else if (event_type == "GRACEFUL_DISCONNECT") {
+    // The GRACEFUL_DISCONNECT event (CEP-59) has no body; the type string is
+    // enough.
+    event_type_ = CASS_EVENT_GRACEFUL_DISCONNECT;
   } else if (event_type == "SCHEMA_CHANGE") {
     event_type_ = CASS_EVENT_SCHEMA_CHANGE;
 

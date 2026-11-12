@@ -483,7 +483,8 @@ public:
       , request_rates(&thread_state_)
       , total_connections(&thread_state_)
       , connection_timeouts(&thread_state_)
-      , request_timeouts(&thread_state_) {}
+      , request_timeouts(&thread_state_)
+      , graceful_disconnects(&thread_state_) {}
 
   void record_request(uint64_t latency_ns) {
     // Final measurement is in microseconds
@@ -509,6 +510,10 @@ public:
 
   Counter connection_timeouts;
   Counter request_timeouts;
+
+  // The number of GRACEFUL_DISCONNECT events (CEP-59) received from nodes
+  // that are shutting down gracefully, across all connections.
+  Counter graceful_disconnects;
 
   unsigned histogram_refresh_interval;
 

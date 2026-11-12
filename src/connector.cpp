@@ -266,7 +266,32 @@ void Connector::on_ready_or_set_keyspace() {
   }
 }
 
+bool Connector::supports_graceful_disconnect(const StringMultimap& supported_options) {
+  StringMultimap::const_iterator it = supported_options.find("GRACEFUL_DISCONNECT");
+  if (it == supported_options.end()) {
+    return false;
+  }
+  const Vector<String>& values = it->second;
+  for (Vector<String>::const_iterator vit = values.begin(), end = values.end(); vit != end;
+       ++vit) {
+    if (iequals(StringRef(*vit), StringRef("false"))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void Connector::on_ready_or_register_for_events() {
+  // GRACEFUL_DISCONNECT (CEP-59) support is negotiated per connection: only
+  // register if this connection's SUPPORTED response advertised it, and only
+  // on protocol version 5 or above. The server may advertise the capability
+  // in SUPPORTED on older protocol versions but reject the REGISTER, so the
+  // protocol version must be checked as well.
+  if ((event_types_ & CASS_EVENT_GRACEFUL_DISCONNECT) != 0 &&
+      (!supports_graceful_disconnect(supported_options_) ||
+       protocol_version_ < ProtocolVersion(CASS_PROTOCOL_VERSION_V5))) {
+    event_types_ &= ~CASS_EVENT_GRACEFUL_DISCONNECT;
+  }
   if (event_types_ != 0) {
     connection_->write_and_flush(RequestCallback::Ptr(
         new StartupCallback(this, Request::ConstPtr(new RegisterRequest(event_types_)))));

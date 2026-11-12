@@ -96,6 +96,12 @@ struct ConnectionPoolSettings {
   ConnectionSettings connection_settings;
   size_t num_connections_per_host;
   ReconnectionPolicy::Ptr reconnection_policy;
+
+  /**
+   * If true then pooled connections will register for GRACEFUL_DISCONNECT
+   * events (CEP-59), if the server advertises support for them.
+   */
+  bool graceful_disconnect;
 };
 
 /**
@@ -198,6 +204,16 @@ public:
    * @param connection A connection with pending writes.
    */
   void requires_flush(PooledConnection* connection, Protected);
+
+  /**
+   * Gracefully drain all connections to this pool's host (CEP-59): in-flight
+   * requests are allowed to complete before the connections are closed. Called
+   * when a GRACEFUL_DISCONNECT event is received on one of this pool's
+   * connections.
+   *
+   * @param A key to restrict access to the method.
+   */
+  void on_graceful_disconnect(Protected);
 
 private:
   enum CloseState {

@@ -68,6 +68,7 @@ void ConnectionPoolConnector::connect(uv_loop_t* loop) {
     connector->with_keyspace(keyspace_)
         ->with_metrics(metrics_)
         ->with_settings(settings_.connection_settings)
+        ->with_event_types(settings_.graceful_disconnect ? CASS_EVENT_GRACEFUL_DISCONNECT : 0)
         ->connect(loop);
   }
 }
