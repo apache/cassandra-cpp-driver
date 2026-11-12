@@ -10991,8 +10991,6 @@ cass_uuid_from_string_n(const char* str,
  * Creates a new server-side timestamp generator. This generator allows Cassandra
  * to assign timestamps server-side.
  *
- * <b>Note:</b> This is the default timestamp generator.
- *
  * @cassandra{2.1+}
  *
  * @public @memberof CassTimestampGen
@@ -11021,7 +11019,7 @@ cass_timestamp_gen_server_side_new();
  * instance.
  *
  * <b>Note:</b> This generator is thread-safe and can be shared by multiple
- * sessions.
+ * sessions. It is the default timestamp generator.
  *
  * @cassandra{2.1+}
  *
