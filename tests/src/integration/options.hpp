@@ -99,6 +99,12 @@ public:
    */
   static bool is_ddac();
   /**
+   * Flag to determine if HCD should be used or not
+   *
+   * @return True if HCD should be used; false otherwise
+   */
+  static bool is_hcd();
+  /**
    * Get the DSE credentials type (username|password/INI file)
    *
    * @return DSE credentials type

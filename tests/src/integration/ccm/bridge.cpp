@@ -326,7 +326,8 @@ bool CCM::Bridge::create_cluster(std::vector<unsigned short> data_center_nodes,
         } else {
           create_command.push_back(dse_version_.ccm_version());
         }
-        if (dse_credentials_type_ == DseCredentialsType::USERNAME_PASSWORD) {
+        // HCD is downloaded without DSE credentials
+        if (!is_hcd() && dse_credentials_type_ == DseCredentialsType::USERNAME_PASSWORD) {
           create_command.push_back("--dse-username=" + dse_username_);
           create_command.push_back("--dse-password=" + dse_password_);
         }
@@ -336,6 +337,8 @@ bool CCM::Bridge::create_cluster(std::vector<unsigned short> data_center_nodes,
       create_command.push_back("--dse");
     } else if (is_ddac()) {
       create_command.push_back("--ddac");
+    } else if (is_hcd()) {
+      create_command.push_back("--hcd");
     }
     create_command.push_back("-b");
 
@@ -633,6 +636,8 @@ unsigned int CCM::Bridge::add_node(const std::string& data_center /*= ""*/) {
   }
   if (is_dse()) {
     add_node_command.push_back("--dse");
+  } else if (is_hcd()) {
+    add_node_command.push_back("--hcd");
   }
   add_node_command.push_back(generate_node_name(node));
   execute_ccm_command(add_node_command);
@@ -1334,9 +1339,8 @@ std::string CCM::Bridge::read_libssh2_terminal() {
 
 std::string CCM::Bridge::execute_ccm_command(const std::vector<std::string>& command) {
   // Create the CCM command
-  std::vector<std::string> ccm_command;
-  ccm_command.push_back("ccm");
-  ccm_command.insert(ccm_command.end(), command.begin(), command.end());
+  std::vector<std::string> ccm_command = translate_config_for_version(command);
+  ccm_command.insert(ccm_command.begin(), "ccm");
   LOG(implode(ccm_command));
 
   // Determine how to execute the command
@@ -1435,15 +1439,14 @@ std::string CCM::Bridge::generate_cluster_nodes(std::vector<unsigned short> data
   return cluster_nodes.str();
 }
 
-std::vector<std::string>
-CCM::Bridge::generate_create_updateconf_command(CassVersion cassandra_version) {
+std::vector<std::string> CCM::Bridge::generate_create_updateconf_command(CassVersion cassandra_version) {
   // TODO: Add SSL setup and client authentication
   // Create the update configuration command (common updates)
   std::vector<std::string> updateconf_command;
   updateconf_command.push_back("updateconf");
+
   // Disable optimizations (limits) when using DSE/DDAC
   if (is_cassandra()) {
-    updateconf_command.push_back("--rt=10000");
     updateconf_command.push_back("read_request_timeout_in_ms:10000");
     updateconf_command.push_back("write_request_timeout_in_ms:10000");
     updateconf_command.push_back("request_timeout_in_ms:10000");
@@ -1459,46 +1462,64 @@ CCM::Bridge::generate_create_updateconf_command(CassVersion cassandra_version) {
     updateconf_command.push_back("key_cache_save_period:0");
     updateconf_command.push_back("memtable_flush_writers:1");
     updateconf_command.push_back("max_hints_delivery_threads:1");
-
-    // Create Cassandra version specific updates (C* v1.2.x)
-    if (cassandra_version < "2.0.0") {
-      updateconf_command.push_back("reduce_cache_sizes_at:0");
-      updateconf_command.push_back("reduce_cache_capacity_to:0");
-      updateconf_command.push_back("flush_largest_memtables_at:0");
-      updateconf_command.push_back("index_interval:512");
-    } else {
-      updateconf_command.push_back("cas_contention_timeout_in_ms:10000");
-      updateconf_command.push_back("file_cache_size_in_mb:0");
-    }
-
-    // Create Cassandra version specific updates (C* < v2.1)
-    if (cassandra_version < "2.1.0") {
-      updateconf_command.push_back("in_memory_compaction_limit_in_mb:1");
-    }
-
-    // Create Cassandra version specific updates (C* < v4.0)
-    if (cassandra_version < "4.0.0") {
-      updateconf_command.push_back("rpc_min_threads:1");
-      updateconf_command.push_back("rpc_max_threads:1");
-    }
-  }
-
-  // Create Cassandra version specific updated (C* 2.2+)
-  if (cassandra_version >= "2.2.0") {
-    updateconf_command.push_back("enable_user_defined_functions:true");
-  }
-
-  // Create Cassandra version specific updated (C* 3.0+)
-  if (cassandra_version >= "3.0.0") {
-    updateconf_command.push_back("enable_scripted_user_defined_functions:true");
-  }
-
-  if (cassandra_version >= "4.0.0" && !is_dse()) {
+    updateconf_command.push_back("cas_contention_timeout_in_ms:10000");
+    updateconf_command.push_back("file_cache_size_in_mb:0");
     updateconf_command.push_back("enable_materialized_views:true");
-    updateconf_command.push_back("enable_user_defined_functions:true");
   }
+
+  updateconf_command.push_back("enable_user_defined_functions:true");
 
   return updateconf_command;
+}
+
+std::vector<std::string> CCM::Bridge::translate_config_for_version(std::vector<std::string> command) {
+  if (!is_cassandra() || cassandra_version_ < "4.1.0") {
+    return command;
+  }
+
+  bool is_updateconf = false;
+  for (auto & argument : command) {
+    if (!is_updateconf) {
+      is_updateconf = (argument == "updateconf");
+    } else if (!argument.empty() && argument[0] == '-') {
+      is_updateconf = false;
+    } else if (argument.find(':') != std::string::npos) {
+      argument = translate_config_pair(argument);
+    }
+  }
+
+  return command;
+}
+
+std::string CCM::Bridge::translate_config_pair(const std::string& key_value) {
+  std::size_t separator = key_value.find(':');
+  std::string key = key_value.substr(0, separator);
+  std::string value = key_value.substr(separator + 1);
+
+  if (key.find('.') != std::string::npos) {
+    return key_value;
+  }
+
+  static const char* SUFFIXES[][2] = {
+    { "_in_ms", "ms" },
+    { "_in_mb", "MiB" },
+    { "_mb_per_sec", "MiB/s" }
+  };
+
+  for (const auto& i : SUFFIXES) {
+    std::string suffix = i[0];
+    if (key.size() >= suffix.size() &&
+        key.compare(key.size() - suffix.size(), suffix.size(), suffix) == 0) {
+      return key.substr(0, key.size() - suffix.size()) + ":" + value + i[1];
+    }
+  }
+
+  std::string enable_prefix = "enable_";
+  if (key.compare(0, enable_prefix.size(), enable_prefix) == 0) {
+    return key.substr(enable_prefix.size()) + "_enabled:" + value;
+  }
+
+  return key_value;
 }
 
 std::string CCM::Bridge::generate_dse_workloads(std::vector<DseWorkload> workloads) {

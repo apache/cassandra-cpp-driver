@@ -40,7 +40,7 @@ typedef struct _LIBSSH2_CHANNEL LIBSSH2_CHANNEL;
 
 // Default values
 #define DEFAULT_CASSANDRA_VERSION CassVersion("3.11.6")
-#define DEFAULT_DSE_VERSION DseVersion("6.7.7")
+#define DEFAULT_DSE_VERSION DseVersion("6.9.0")
 #define DEFAULT_USE_GIT false
 #define DEFAULT_USE_INSTALL_DIR false
 #define DEFAULT_SERVER_TYPE ServerType(ServerType::CASSANDRA)
@@ -523,6 +523,13 @@ public:
   bool is_ddac() { return server_type_ == ServerType::DDAC; }
 
   /**
+   * Determine if server type is Hyper-Converged Database
+   *
+   * @return True if HCD; false otherwise
+   */
+  bool is_hcd() { return server_type_ == ServerType::HCD; }
+
+  /**
    * Force decommission of a node on the active Cassandra cluster
    *
    * NOTE: Alias for decommission_node(node, true)
@@ -946,6 +953,31 @@ private:
    * @return Array/Vector containing the updateconf command
    */
   std::vector<std::string> generate_create_updateconf_command(CassVersion cassandra_version);
+
+  /**
+   * Translate the "key:value" arguments of a CCM "updateconf" command to the
+   * format Cassandra 4.1 introduced (ignoring nested keys); all other commands,
+   * arguments, flags and flag values (e.g. the literal "-y") are left
+   * unchanged
+   *
+   * Transformations include:
+   * - "_in_*"/"_*_per_sec" suffix -> appending "*[/s]" to the value
+   * - "enable_" prefix -> "_enabled" suffix
+   *
+   * @param command Command array to translate
+   * @return The command w/ its config pairs translated if the server
+   *         is Cassandra v4.1.0+; otherwise command unchanged
+   */
+  std::vector<std::string> translate_config_for_version(std::vector<std::string> command);
+
+  /**
+   * Translate a single cassandra.yaml "key:value" update pair to the format
+   * Cassandra 4.1 introduced (ignoring nested keys)
+   *
+   * @param key_value Original "key:value" pair; must contain a ":" separator
+   * @return The pair translated if renamed; otherwise key_value unchanged
+   */
+  static std::string translate_config_pair(const std::string& key_value);
 
   /**
    * Generate the command separated list for have a single or multiple

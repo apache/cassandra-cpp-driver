@@ -26,8 +26,9 @@
 #include <iostream>
 
 #define DEFAULT_OPTIONS_CASSSANDRA_VERSION CCM::CassVersion("3.11.6")
-#define DEFAULT_OPTIONS_DSE_VERSION CCM::DseVersion("6.7.7")
+#define DEFAULT_OPTIONS_DSE_VERSION CCM::DseVersion("6.9.0")
 #define DEFAULT_OPTIONS_DDAC_VERSION CCM::DseVersion("5.1.17")
+#define DEFAULT_OPTIONS_HCD_VERSION CCM::DseVersion("1.0.0")
 
 // Initialize the defaults for all the options
 bool Options::is_initialized_ = false;
@@ -82,6 +83,8 @@ bool Options::initialize(int argc, char* argv[]) {
         server_version_ = DEFAULT_OPTIONS_DSE_VERSION;
       } else if (std::string(argv[i]) == "--ddac") {
         server_version_ = DEFAULT_OPTIONS_DDAC_VERSION;
+      } else if (std::string(argv[i]) == "--hcd") {
+        server_version_ = DEFAULT_OPTIONS_HCD_VERSION;
       }
     }
 
@@ -115,6 +118,8 @@ bool Options::initialize(int argc, char* argv[]) {
         server_type_ = CCM::ServerType::DSE;
       } else if (key == "--ddac") {
         server_type_ = CCM::ServerType::DDAC;
+      } else if (key == "--hcd") {
+        server_type_ = CCM::ServerType::HCD;
       } else if (key == "--dse-username") {
         if (!value.empty()) {
           dse_username_ = value;
@@ -263,7 +268,7 @@ bool Options::initialize(int argc, char* argv[]) {
     if (deployment_type_ == CCM::DeploymentType::LOCAL) {
       host_ = "127.0.0.1";
     }
-    if (!is_cassandra() && !use_install_dir_) {
+    if (!is_cassandra() && !is_hcd() && !use_install_dir_) {
       // Determine if the DSE/DDAC credentials type should be updated
       if (dse_credentials_type_ == CCM::DseCredentialsType::USERNAME_PASSWORD) {
         if (dse_username_.empty() || dse_password_.empty()) {
@@ -290,11 +295,12 @@ void Options::print_help() {
   std::cout << std::endl << "CCM Options:" << std::endl;
   std::cout << "  --version=[VERSION]" << std::endl
             << "      "
-            << "Cassandra/DSE/DDAC version to use." << std::endl
+            << "Cassandra/DSE/DDAC/HCD version to use." << std::endl
             << "      Default:" << std::endl
             << "        Cassandra Version: " << server_version().to_string() << std::endl
             << "        DSE Version: " << DEFAULT_OPTIONS_DSE_VERSION.to_string() << std::endl
-            << "        DDAC Version: " << DEFAULT_OPTIONS_DDAC_VERSION.to_string() << std::endl;
+            << "        DDAC Version: " << DEFAULT_OPTIONS_DDAC_VERSION.to_string() << std::endl
+            << "        HCD Version: " << DEFAULT_OPTIONS_HCD_VERSION.to_string() << std::endl;
   std::string categories;
   for (TestCategory::iterator iterator = TestCategory::begin(); iterator != TestCategory::end();
        ++iterator) {
@@ -315,6 +321,9 @@ void Options::print_help() {
   std::cout << "  --ddac" << std::endl
             << "      "
             << "Indicate server version supplied is DDAC." << std::endl;
+  std::cout << "  --hcd" << std::endl
+            << "      "
+            << "Indicate server version supplied is HCD." << std::endl;
   std::cout << "  --dse-credentials=(USERNAME_PASSWORD|INI_FILE)" << std::endl
             << "      "
             << "DSE/DDAC credentials to use for download authentication. The default is "
@@ -392,7 +401,7 @@ void Options::print_settings() {
   if (!is_cassandra()) {
     std::cout << "  " << server_type_.to_string()
               << " Version: " << CCM::DseVersion(server_version()).to_string() << std::endl;
-    if (!use_install_dir()) {
+    if (!use_install_dir() && !is_hcd()) {
       if (dse_credentials() == CCM::DseCredentialsType::USERNAME_PASSWORD) {
         std::cout << "      Username: " << dse_username() << std::endl;
         std::cout << "      Password: " << dse_password() << std::endl;
@@ -446,6 +455,8 @@ bool Options::is_cassandra() { return server_type_ == CCM::ServerType::CASSANDRA
 bool Options::is_dse() { return server_type_ == CCM::ServerType::DSE; }
 
 bool Options::is_ddac() { return server_type_ == CCM::ServerType::DDAC; }
+
+bool Options::is_hcd() { return server_type_ == CCM::ServerType::HCD; }
 
 CCM::DseCredentialsType Options::dse_credentials() {
   // Static initialization cannot be guaranteed

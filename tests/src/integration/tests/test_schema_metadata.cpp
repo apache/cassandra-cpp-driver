@@ -75,6 +75,25 @@ public:
         format_string("CREATE INDEX schema_meta_index ON %s (value)", table_name_.c_str()));
   }
 
+  size_t expected_metadata_column_count() {
+    if (server_version_ >= "5.0.9") {
+      return 11u;
+    }
+    if (server_version_ >= "5.0.0") {
+      return 10u;
+    }
+    if (server_version_ >= "4.1.0") {
+      return 9u;
+    }
+    return 8u;
+  }
+
+  CassValueType expected_metadata_task_id_type() {
+    return (server_version_ >= "4.1.0")
+      ? CASS_VALUE_TYPE_TIMEUUID
+      : CASS_VALUE_TYPE_UUID;
+  }
+
 protected:
   Schema schema_meta_;
 };
@@ -156,7 +175,7 @@ CASSANDRA_INTEGRATION_TEST_F(SchemaMetadataTest, VirtualMetadata) {
   EXPECT_TRUE(table_meta.is_virtual());
 
   // Verify virtual table's metadata
-  EXPECT_EQ(cass_table_meta_column_count(table_meta.get()), 8u);
+  EXPECT_EQ(cass_table_meta_column_count(table_meta.get()), expected_metadata_column_count());
   EXPECT_EQ(cass_table_meta_index_count(table_meta.get()), 0u);
   EXPECT_EQ(cass_table_meta_materialized_view_count(table_meta.get()), 0u);
 
@@ -178,7 +197,7 @@ CASSANDRA_INTEGRATION_TEST_F(SchemaMetadataTest, VirtualMetadata) {
 
   column_meta = cass_table_meta_column_by_name(table_meta.get(), "task_id");
   ASSERT_TRUE(column_meta);
-  EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)), CASS_VALUE_TYPE_UUID);
+  EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)), expected_metadata_task_id_type());
 
   column_meta = cass_table_meta_column_by_name(table_meta.get(), "kind");
   ASSERT_TRUE(column_meta);
@@ -195,4 +214,10 @@ CASSANDRA_INTEGRATION_TEST_F(SchemaMetadataTest, VirtualMetadata) {
   column_meta = cass_table_meta_column_by_name(table_meta.get(), "unit");
   ASSERT_TRUE(column_meta);
   EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)), CASS_VALUE_TYPE_TEXT);
+
+  if (server_version_ >= "4.1.0") {
+    column_meta = cass_table_meta_column_by_name(table_meta.get(), "sstables");
+    ASSERT_TRUE(column_meta);
+    EXPECT_EQ(cass_data_type_type(cass_column_meta_data_type(column_meta)), CASS_VALUE_TYPE_INT);
+  }
 }
