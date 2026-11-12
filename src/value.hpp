@@ -104,27 +104,15 @@ public:
 
   bool is_null() const { return is_null_; }
 
-  bool is_collection() const {
-    if (!data_type_) return false;
-    return data_type_->is_collection();
-  }
+  bool is_collection() const { return data_type_ && data_type_->is_collection(); }
 
-  bool is_map() const {
-    if (!data_type_) return false;
-    return data_type_->is_map();
-  }
+  bool is_map() const { return data_type_ && data_type_->is_map(); }
 
-  bool is_tuple() const {
-    if (!data_type_) return false;
-    return data_type_->is_tuple();
-  }
+  bool is_tuple() const { return data_type_ && data_type_->is_tuple(); }
 
-  bool is_user_type() const {
-    if (!data_type_) return false;
-    return data_type_->is_user_type();
-  }
+  bool is_user_type() const { return data_type_ && data_type_->is_user_type(); }
 
-  int32_t count() const { return count_; }
+  int32_t count() const { return count_ * !is_null_; }
 
   StringRef to_string_ref() const {
     if (is_null()) return StringRef();
