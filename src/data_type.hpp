@@ -30,6 +30,8 @@
 #include "types.hpp"
 #include "vector.hpp"
 
+#include <algorithm>
+
 namespace datastax { namespace internal { namespace core {
 
 class Collection;
@@ -367,11 +369,15 @@ public:
       return false;
     }
 
-    if (fields_.size() != user_type->fields_.size()) {
-      return false;
-    }
 
-    for (size_t i = 0; i < fields_.size(); ++i) {
+    // UDT's can be considered equal as long as the mutual first fields shared
+    // between them are equal. UDT's are append only as far as fields go, so a
+    // newer 'version' of the UDT data type after a schema change event should be
+    // treated as equivalent in this scenario, by simply looking at the first N
+    // mutual fields they should share.
+    size_t min_fields_size = std::min(fields_.size(), user_type->fields_.size());
+
+    for (size_t i = 0; i < min_fields_size; ++i) {
       if (fields_[i].name != user_type->fields_[i].name ||
           !fields_[i].type->equals(user_type->fields_[i].type)) {
         return false;
